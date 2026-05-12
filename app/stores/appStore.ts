@@ -63,10 +63,10 @@ function createDefaultInputs(): FeasibilityInputs {
       suburb: "Frankston South",
       postcode: "3199",
       costs: [
-        { id: "buyers-fee", name: "Buyers / Finders Fee", amount: 40000, isPercentage: false },
-        { id: "accounting-legals", name: "Accounting & Legals", amount: 15000, isPercentage: false },
-        { id: "closing-costs", name: "Closing Costs & Settlement", amount: 3000, isPercentage: false },
-        { id: "due-diligence", name: "Due Diligence", amount: 5000, isPercentage: false },
+        { id: "buyers-fee", name: "Buyers / Finders Fee", amount: 40000, isPercentage: false, gstTreatment: "inclusive" },
+        { id: "accounting-legals", name: "Accounting & Legals", amount: 15000, isPercentage: false, gstTreatment: "inclusive" },
+        { id: "closing-costs", name: "Closing Costs & Settlement", amount: 3000, isPercentage: false, gstTreatment: "inclusive" },
+        { id: "due-diligence", name: "Due Diligence", amount: 5000, isPercentage: false, gstTreatment: "inclusive" },
       ],
     },
     development: {
@@ -76,16 +76,18 @@ function createDefaultInputs(): FeasibilityInputs {
         { id: 2, name: "Block 92", salePrice: 1775000, buildAreaSqm: 0, landAreaSqm: 647.5, isHeld: false, hasConstruction: false },
       ],
       globalCosts: [
-        { id: "town-planning", name: "Town Planning", amount: 0.6, isPercentage: true, applyPerLot: false },
-        { id: "building-permits", name: "Building Permits", amount: 0.6, isPercentage: true, applyPerLot: false },
-        { id: "utilities", name: "Utilities / Tapping", amount: 50000, isPercentage: false, applyPerLot: false },
-        { id: "holding", name: "Holding Cost", amount: 0.5, isPercentage: true, applyPerLot: false },
-        { id: "demo", name: "Demolition", amount: 60000, isPercentage: false, applyPerLot: false },
-        { id: "marketing", name: "Marketing & Selling", amount: 1.5, isPercentage: true, applyPerLot: false },
+        { id: "town-planning", name: "Town Planning", amount: 0.6, isPercentage: true, applyPerLot: false, gstTreatment: "inclusive" },
+        { id: "building-permits", name: "Building Permits", amount: 0.6, isPercentage: true, applyPerLot: false, gstTreatment: "inclusive" },
+        { id: "land-surveying", name: "Land Surveying", amount: 0, isPercentage: false, applyPerLot: false, gstTreatment: "inclusive" },
+        { id: "utilities-water", name: "Utilities — Water", amount: 0, isPercentage: false, applyPerLot: false, gstTreatment: "free" },
+        { id: "utilities-electricity", name: "Utilities — Electricity", amount: 0, isPercentage: false, applyPerLot: false, gstTreatment: "free" },
+        { id: "council-costs", name: "Council Costs", amount: 0, isPercentage: false, applyPerLot: false, gstTreatment: "free" },
+        { id: "holding", name: "Holding Cost", amount: 0.5, isPercentage: true, applyPerLot: false, gstTreatment: "inclusive" },
+        { id: "demo", name: "Demolition", amount: 60000, isPercentage: false, applyPerLot: false, gstTreatment: "inclusive" },
+        { id: "marketing", name: "Marketing & Selling", amount: 1.5, isPercentage: true, applyPerLot: false, gstTreatment: "inclusive" },
       ],
       constructionCostPerSqm: 2430,
-      operatingReserve: 129040,
-      contingencyPercent: 2,
+      contingencyPercent: 5,
       timeline: {
         settlementDate: "",
         contractDate: "",
@@ -100,6 +102,7 @@ function createDefaultInputs(): FeasibilityInputs {
         pricePerSqm: 0,
         lotSizeGroups: [],
       },
+      gstGlobalTreatment: "inclusive",
     },
     financing: {
       lvr: 70,
@@ -109,6 +112,8 @@ function createDefaultInputs(): FeasibilityInputs {
       brokerFeePercent: 0,
       settlementFee: 1000,
       deferredFeeMonths: 0,
+      lvrBase: "net-grv",
+      secondLvrBase: "net-grv",
     },
     revenue: {
       gst: { treatment: "gst-free", costBasePerLot: 1380000 },
@@ -118,6 +123,10 @@ function createDefaultInputs(): FeasibilityInputs {
       vacancyRate: 0.05,
       rentalShadingPercent: 90,
       numUnitsForRent: 10,
+      applyMarginScheme: false,
+      salesCommissionType: "percentage",
+      salesCommissionPercent: 1.5,
+      salesCommissionFlat: 0,
     },
     operating: {
       costs: [
@@ -191,15 +200,22 @@ function createDefaultInputs(): FeasibilityInputs {
     },
     sda: {
       units: 4,
-      sdaBasicWeekly: 12180,
-      rrcWeekly: 11858,
-      ooaLeaseWeekly: 25622,
+      sdaBasicMonthly: 12180,
+      rrcMonthly: 11858,
+      ooaLeaseMonthly: 25622,
       sdaScenario: "full",
       landlordSharePercent: 92,
       providerFeePercent: 16,
       landlordGuaranteedAnnual: 140000,
       excessRevenueSplit: "50-50",
     },
+    capitalStack: {
+      privateLending: { amount: 0, isPercentageOfCost: false, interestRate: 0 },
+      profitSharing: { amountCommitted: 0, percentOfTotalCapital: 0, percentOfProfit: 0 },
+      developerEquity: { amount: 0, isAutoComputed: true },
+      otherEquity: { amount: 0, isPercentageOfCost: false },
+    },
+    capitalSpread: [],
   };
 }
 
@@ -291,6 +307,8 @@ export const useAppStore = create<AppState>()(
             cashflow: options.copyCashflow ? src.cashflow : defaults.cashflow,
             budgetVsActual: options.copyBudget ? src.budgetVsActual : defaults.budgetVsActual,
             sda: src.sda,
+            capitalStack: options.copyFinancing ? src.capitalStack : defaults.capitalStack,
+            capitalSpread: options.copyCashflow ? src.capitalSpread : defaults.capitalSpread,
           };
 
           const copy: Scenario = {

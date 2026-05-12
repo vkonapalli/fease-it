@@ -1,13 +1,37 @@
+import { useMemo } from "react";
 import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Button } from "~/components/ui/Button";
 import { Toggle } from "~/components/ui/Toggle";
+import { GSTToggle } from "~/components/ui/GSTToggle";
+import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
 import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { calculateRevenue } from "~/lib/calculations/profit";
 import { Plus, Trash2 } from "lucide-react";
 
 export function DevelopmentInputs() {
   const { inputs, setInputs } = useFeasibilityStore();
   const { development } = inputs;
+
+  const { totalRevenue } = useMemo(() => calculateRevenue(development), [development]);
+
+  // Compute construction cost for contingency base
+  const constructionCost = useMemo(() => {
+    return development.lots.reduce((sum, lot) => {
+      return lot.hasConstruction ? sum + development.constructionCostPerSqm * lot.buildAreaSqm : sum;
+    }, 0);
+  }, [development.lots, development.constructionCostPerSqm]);
+
+  // Compute other global costs for contingency base
+  const otherCosts = useMemo(() => {
+    return development.globalCosts.reduce((sum, cost) => {
+      let amount = cost.isPercentage ? totalRevenue * (cost.amount / 100) : cost.amount;
+      if (cost.applyPerLot) amount *= development.numDwellings;
+      return sum + amount;
+    }, 0);
+  }, [development.globalCosts, totalRevenue, development.numDwellings]);
+
+  const contingencyBase = constructionCost + otherCosts;
 
   // --- Lot management ---
   const updateLot = (id: number, updates: Partial<typeof development.lots[0]>) => {
@@ -76,6 +100,7 @@ export function DevelopmentInputs() {
             amount: 0,
             isPercentage: false,
             applyPerLot: false,
+            gstTreatment: "inclusive",
           },
         ],
       },
@@ -87,6 +112,19 @@ export function DevelopmentInputs() {
       development: {
         ...development,
         globalCosts: development.globalCosts.filter((c) => c.id !== id),
+      },
+    });
+  };
+
+  const handleGlobalGSTToggle = (value: "free" | "inclusive" | "exclusive") => {
+    if (value === "free") return;
+    setInputs({
+      development: {
+        ...development,
+        gstGlobalTreatment: value,
+        globalCosts: development.globalCosts.map((c) =>
+          c.gstTreatment === "free" ? c : { ...c, gstTreatment: value }
+        ),
       },
     });
   };
@@ -168,24 +206,41 @@ export function DevelopmentInputs() {
 
         {/* Global Costs */}
         <div className="border-t border-gray-200 pt-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Global Development Costs</h4>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-medium text-gray-700">Global Development Costs</h4>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">Global GST:</span>
+              <GSTToggle
+                value={development.gstGlobalTreatment}
+                onChange={handleGlobalGSTToggle}
+              />
+            </div>
+          </div>
           <div className="space-y-2">
             {development.globalCosts.map((cost) => (
-              <div key={cost.id} className="flex items-center gap-2">
+              <div key={cost.id} className="flex items-center gap-2 flex-wrap">
                 <input
                   type="text"
                   value={cost.name}
                   onChange={(e) => updateGlobalCost(cost.id, { name: e.target.value })}
-                  className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+                  className="flex-1 min-w-[120px] rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
                 />
-                <NumberField
-                  label=""
-                  value={cost.amount}
-                  onChange={(value) => updateGlobalCost(cost.id, { amount: value })}
-                  prefix={cost.isPercentage ? "" : "$"}
-                  suffix={cost.isPercentage ? "%" : ""}
-                  min={0}
-                />
+                <div className="flex items-center">
+                  <NumberField
+                    label=""
+                    value={cost.amount}
+                    onChange={(value) => updateGlobalCost(cost.id, { amount: value })}
+                    prefix={cost.isPercentage ? "" : "$"}
+                    suffix={cost.isPercentage ? "%" : ""}
+                    min={0}
+                  />
+                  {cost.isPercentage && (
+                    <ComputedDollarDisplay
+                      percentage={cost.amount}
+                      baseAmount={totalRevenue}
+                    />
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => updateGlobalCost(cost.id, { isPercentage: !cost.isPercentage })}
@@ -209,6 +264,10 @@ export function DevelopmentInputs() {
                 >
                   ×{development.numDwellings}
                 </button>
+                <GSTToggle
+                  value={cost.gstTreatment}
+                  onChange={(value) => updateGlobalCost(cost.id, { gstTreatment: value })}
+                />
                 <button
                   type="button"
                   onClick={() => removeGlobalCost(cost.id)}
@@ -224,21 +283,21 @@ export function DevelopmentInputs() {
           </Button>
         </div>
 
-        <NumberField
-          label="Operating Reserve & Repairs"
-          value={development.operatingReserve}
-          onChange={(value) => setInputs({ development: { ...development, operatingReserve: value } })}
-          prefix="$"
-          min={0}
-        />
-        <NumberField
-          label="Contingency"
-          value={development.contingencyPercent}
-          onChange={(value) => setInputs({ development: { ...development, contingencyPercent: value } })}
-          suffix="%"
-          min={0}
-          max={50}
-        />
+        <div className="flex items-center">
+          <NumberField
+            label="Contingency"
+            value={development.contingencyPercent}
+            onChange={(value) => setInputs({ development: { ...development, contingencyPercent: value } })}
+            suffix="%"
+            min={0}
+            max={50}
+          />
+          <ComputedDollarDisplay
+            percentage={development.contingencyPercent}
+            baseAmount={contingencyBase}
+            label="≈"
+          />
+        </div>
       </div>
     </Collapsible>
   );

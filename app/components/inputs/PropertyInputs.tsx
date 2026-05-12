@@ -3,6 +3,8 @@ import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Input } from "~/components/ui/Input";
 import { Button } from "~/components/ui/Button";
+import { GSTToggle } from "~/components/ui/GSTToggle";
+import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
 import { AddressAutocomplete } from "~/components/inputs/AddressAutocomplete";
 import { useFeasibilityStore } from "~/stores/feasibilityStore";
 import { calculateStampDuty, AUSTRALIAN_STATES, formatCurrency } from "~/lib/calculations/stampDuty";
@@ -32,7 +34,7 @@ export function PropertyInputs() {
     return !(name.includes("stamp") || name.includes("duty") || name.includes("land tax"));
   });
 
-  const updateCost = (id: string, updates: Partial<{ name: string; amount: number; isPercentage: boolean }>) => {
+  const updateCost = (id: string, updates: Partial<{ name: string; amount: number; isPercentage: boolean; gstTreatment: "free" | "inclusive" | "exclusive" }>) => {
     setInputs({
       property: {
         ...property,
@@ -47,7 +49,7 @@ export function PropertyInputs() {
         ...property,
         costs: [
           ...property.costs,
-          { id: crypto.randomUUID(), name: "New Cost", amount: 0, isPercentage: false },
+          { id: crypto.randomUUID(), name: "New Cost", amount: 0, isPercentage: false, gstTreatment: "inclusive" },
         ],
       },
     });
@@ -175,22 +177,30 @@ export function PropertyInputs() {
           <h4 className="text-sm font-medium text-gray-700 mb-2">Acquisition Costs</h4>
           <div className="space-y-2">
             {editableCosts.map((cost) => (
-              <div key={cost.id} className="flex items-center gap-2">
+              <div key={cost.id} className="flex items-center gap-2 flex-wrap">
                 <input
                   type="text"
                   value={cost.name}
                   onChange={(e) => updateCost(cost.id, { name: e.target.value })}
-                  className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+                  className="flex-1 min-w-[120px] rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
                   placeholder="Cost name"
                 />
-                <NumberField
-                  label=""
-                  value={cost.amount}
-                  onChange={(value) => updateCost(cost.id, { amount: value })}
-                  prefix={cost.isPercentage ? "" : "$"}
-                  suffix={cost.isPercentage ? "%" : ""}
-                  min={0}
-                />
+                <div className="flex items-center">
+                  <NumberField
+                    label=""
+                    value={cost.amount}
+                    onChange={(value) => updateCost(cost.id, { amount: value })}
+                    prefix={cost.isPercentage ? "" : "$"}
+                    suffix={cost.isPercentage ? "%" : ""}
+                    min={0}
+                  />
+                  {cost.isPercentage && (
+                    <ComputedDollarDisplay
+                      percentage={cost.amount}
+                      baseAmount={property.purchasePrice}
+                    />
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => updateCost(cost.id, { isPercentage: !cost.isPercentage })}
@@ -202,6 +212,10 @@ export function PropertyInputs() {
                 >
                   %
                 </button>
+                <GSTToggle
+                  value={cost.gstTreatment}
+                  onChange={(value) => updateCost(cost.id, { gstTreatment: value })}
+                />
                 <button
                   type="button"
                   onClick={() => removeCost(cost.id)}

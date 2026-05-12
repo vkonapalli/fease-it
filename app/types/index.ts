@@ -33,11 +33,14 @@ export interface LotConfig {
 }
 
 // --- Acquisition Costs (fully configurable) ---
+export type GSTCostTreatment = "free" | "inclusive" | "exclusive";
+
 export interface AcquisitionCostItem {
   id: string;
   name: string;
   amount: number;
   isPercentage: boolean;      // If true, amount is % of purchasePrice
+  gstTreatment: GSTCostTreatment;
 }
 
 export interface AcquisitionInputs {
@@ -59,6 +62,7 @@ export interface DevelopmentCostItem {
   amount: number;
   isPercentage: boolean;      // If true, amount is % of totalRevenue
   applyPerLot: boolean;       // If true, amount × numLots
+  gstTreatment: GSTCostTreatment;
 }
 
 export interface TimelineInputs {
@@ -109,14 +113,14 @@ export interface DevelopmentInputs {
   globalCosts: DevelopmentCostItem[];
   // Construction cost per sqm (applied to each lot's buildArea)
   constructionCostPerSqm: number;
-  // Operating reserve / repairs buffer
-  operatingReserve: number;
   // Contingency as % of total development cost
   contingencyPercent: number;
   // Project timeline
   timeline: TimelineInputs;
   // Development strategy & pricing
   strategy: DevelopmentStrategy;
+  // Global GST treatment for all line items (except free items)
+  gstGlobalTreatment: GSTCostTreatment;
 }
 
 // --- Financing (fully configurable) ---
@@ -133,6 +137,50 @@ export interface FinancingInputs {
   // Optional second loan / mezzanine
   secondLvr?: number;
   secondInterestRate?: number;
+  // Capital stack base selection
+  lvrBase: "net-grv" | "net-project-costs";
+  secondLvrBase?: "net-grv" | "net-project-costs";
+}
+
+// --- Capital Stack ---
+export interface PrivateLendingConfig {
+  amount: number;
+  isPercentageOfCost: boolean;
+  interestRate: number;
+}
+
+export interface ProfitSharingConfig {
+  amountCommitted: number;
+  percentOfTotalCapital: number;
+  percentOfProfit: number;
+}
+
+export interface DeveloperEquityConfig {
+  amount: number;
+  isAutoComputed: boolean;
+}
+
+export interface OtherEquityConfig {
+  amount: number;
+  isPercentageOfCost: boolean;
+}
+
+export interface CapitalStackConfig {
+  privateLending: PrivateLendingConfig;
+  profitSharing: ProfitSharingConfig;
+  developerEquity: DeveloperEquityConfig;
+  otherEquity: OtherEquityConfig;
+}
+
+// --- Capital Spread ---
+export interface CapitalSpreadItem {
+  id: string;
+  description: string;
+  amount: number;
+  isPercentage: boolean;
+  date: string;
+  type: "Deposit" | "Progress" | "Final";
+  linkedStackCategory?: string;
 }
 
 // --- Revenue (per-lot + global) ---
@@ -146,6 +194,12 @@ export interface RevenueInputs {
   vacancyRate: number;
   rentalShadingPercent: number;  // % of rent counted by banks (e.g. 90%)
   numUnitsForRent: number;
+  // Margin scheme override
+  applyMarginScheme: boolean;
+  // Sales commission
+  salesCommissionType: "percentage" | "flat";
+  salesCommissionPercent: number;
+  salesCommissionFlat: number;
 }
 
 // --- Operating Costs (for hold/rental) ---
@@ -265,6 +319,8 @@ export interface FeasibilityInputs {
   cashflow: CashflowConfig;
   budgetVsActual: BudgetVsActual;
   sda: SDAUnitConfig;
+  capitalStack: CapitalStackConfig;
+  capitalSpread: CapitalSpreadItem[];
 }
 
 // --- Result Types ---
@@ -287,11 +343,11 @@ export interface CostBreakdown {
   legalDueDiligence: number;
   construction: number;
   development: number;
-  operatingReserve: number;
   financing: number;
   marketing: number;
   holding: number;
   contingency: number;
+  salesCommission: number;
   total: number;
 }
 
@@ -372,6 +428,20 @@ export interface ScenarioResult {
   capRate: number;
   // 7-year projection
   yearlyProjections: YearlyProjection[];
+  // Tax & commission
+  cgtEstimate: number;
+  marginSchemeGst: number;
+  salesCommission: number;
+  // Capital stack
+  deficit: number;
+  totalProjectCost: number;
+  seniorDebtAmount: number;
+  mezzanineDebtAmount: number;
+  privateLendingAmount: number;
+  developerEquityAmount: number;
+  otherEquityAmount: number;
+  profitSharingAmount: number;
+  committedCapital: number;
 }
 
 export interface YearlyProjection {
@@ -413,9 +483,9 @@ export interface Feasibility {
 // --- SDA Module Types (separate module) ---
 export interface SDAUnitConfig {
   units: number;
-  sdaBasicWeekly: number;
-  rrcWeekly: number;
-  ooaLeaseWeekly: number;
+  sdaBasicMonthly: number;
+  rrcMonthly: number;
+  ooaLeaseMonthly: number;
   // Scenarios
   sdaScenario: "full" | "50" | "none";  // % of SDA uptake
   // Revenue splits

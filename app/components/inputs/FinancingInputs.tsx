@@ -1,22 +1,52 @@
+import { useMemo } from "react";
 import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
+import { Toggle } from "~/components/ui/Toggle";
+import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
 import { useFeasibilityStore } from "~/stores/feasibilityStore";
+
+const LVR_BASE_OPTIONS = [
+  { label: "Net GRV", value: "net-grv" as const },
+  { label: "Net Costs", value: "net-project-costs" as const },
+];
 
 export function FinancingInputs() {
   const { inputs, setInputs } = useFeasibilityStore();
-  const { financing } = inputs;
+  const { financing, property } = inputs;
+
+  const loanAmount = useMemo(() => {
+    return property.purchasePrice * (financing.lvr / 100);
+  }, [property.purchasePrice, financing.lvr]);
+
+  const secondLoanAmount = useMemo(() => {
+    if (!financing.secondLvr || financing.secondLvr <= 0) return 0;
+    return property.purchasePrice * (financing.secondLvr / 100);
+  }, [property.purchasePrice, financing.secondLvr]);
 
   return (
     <Collapsible title="Financing">
       <div className="space-y-4">
-        <NumberField
-          label="Loan-to-Value Ratio (LVR)"
-          value={financing.lvr}
-          onChange={(value) => setInputs({ financing: { ...financing, lvr: value } })}
-          suffix="%"
-          min={0}
-          max={100}
-          step={1}
+        <div className="flex items-center">
+          <NumberField
+            label="Loan-to-Value Ratio (LVR)"
+            value={financing.lvr}
+            onChange={(value) => setInputs({ financing: { ...financing, lvr: value } })}
+            suffix="%"
+            min={0}
+            max={100}
+            step={1}
+          />
+          <ComputedDollarDisplay
+            percentage={financing.lvr}
+            baseAmount={property.purchasePrice}
+            label="≈"
+          />
+        </div>
+        <Toggle
+          label="LVR Base"
+          options={LVR_BASE_OPTIONS}
+          value={financing.lvrBase}
+          onChange={(value) => setInputs({ financing: { ...financing, lvrBase: value as "net-grv" | "net-project-costs" } })}
         />
         <NumberField
           label="Interest Rate"
@@ -35,24 +65,38 @@ export function FinancingInputs() {
           min={1}
           max={360}
         />
-        <NumberField
-          label="Establishment Fee"
-          value={financing.establishmentFeePercent}
-          onChange={(value) => setInputs({ financing: { ...financing, establishmentFeePercent: value } })}
-          suffix="%"
-          min={0}
-          max={10}
-          step={0.01}
-        />
-        <NumberField
-          label="Broker Fee"
-          value={financing.brokerFeePercent}
-          onChange={(value) => setInputs({ financing: { ...financing, brokerFeePercent: value } })}
-          suffix="%"
-          min={0}
-          max={10}
-          step={0.01}
-        />
+        <div className="flex items-center">
+          <NumberField
+            label="Establishment Fee"
+            value={financing.establishmentFeePercent}
+            onChange={(value) => setInputs({ financing: { ...financing, establishmentFeePercent: value } })}
+            suffix="%"
+            min={0}
+            max={10}
+            step={0.01}
+          />
+          <ComputedDollarDisplay
+            percentage={financing.establishmentFeePercent}
+            baseAmount={loanAmount}
+            label="≈"
+          />
+        </div>
+        <div className="flex items-center">
+          <NumberField
+            label="Broker Fee"
+            value={financing.brokerFeePercent}
+            onChange={(value) => setInputs({ financing: { ...financing, brokerFeePercent: value } })}
+            suffix="%"
+            min={0}
+            max={10}
+            step={0.01}
+          />
+          <ComputedDollarDisplay
+            percentage={financing.brokerFeePercent}
+            baseAmount={loanAmount}
+            label="≈"
+          />
+        </div>
         <NumberField
           label="Settlement Fee"
           value={financing.settlementFee}
@@ -72,13 +116,26 @@ export function FinancingInputs() {
         {/* Second loan */}
         <div className="border-t border-gray-200 pt-4">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Second / Mezzanine Loan (Optional)</h4>
-          <NumberField
-            label="Second LVR"
-            value={financing.secondLvr ?? 0}
-            onChange={(value) => setInputs({ financing: { ...financing, secondLvr: value > 0 ? value : undefined } })}
-            suffix="%"
-            min={0}
-            max={100}
+          <div className="flex items-center">
+            <NumberField
+              label="Second LVR"
+              value={financing.secondLvr ?? 0}
+              onChange={(value) => setInputs({ financing: { ...financing, secondLvr: value > 0 ? value : undefined } })}
+              suffix="%"
+              min={0}
+              max={100}
+            />
+            <ComputedDollarDisplay
+              percentage={financing.secondLvr ?? 0}
+              baseAmount={property.purchasePrice}
+              label="≈"
+            />
+          </div>
+          <Toggle
+            label="Second LVR Base"
+            options={LVR_BASE_OPTIONS}
+            value={financing.secondLvrBase ?? financing.lvrBase}
+            onChange={(value) => setInputs({ financing: { ...financing, secondLvrBase: value as "net-grv" | "net-project-costs" } })}
           />
           <NumberField
             label="Second Interest Rate"

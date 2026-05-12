@@ -47,22 +47,22 @@ export function SDAInputs() {
           <h4 className="text-sm font-medium text-gray-700 mb-2">NDIS Revenue Rates (Monthly per Unit)</h4>
           <NumberField
             label="SDA Basic Payment"
-            value={sda.sdaBasicWeekly}
-            onChange={(value) => updateSDA({ sdaBasicWeekly: value })}
+            value={sda.sdaBasicMonthly}
+            onChange={(value) => updateSDA({ sdaBasicMonthly: value })}
             prefix="$"
             min={0}
           />
           <NumberField
             label="RRC (Resident Contribution)"
-            value={sda.rrcWeekly}
-            onChange={(value) => updateSDA({ rrcWeekly: value })}
+            value={sda.rrcMonthly}
+            onChange={(value) => updateSDA({ rrcMonthly: value })}
             prefix="$"
             min={0}
           />
           <NumberField
             label="OOA Lease Component"
-            value={sda.ooaLeaseWeekly}
-            onChange={(value) => updateSDA({ ooaLeaseWeekly: value })}
+            value={sda.ooaLeaseMonthly}
+            onChange={(value) => updateSDA({ ooaLeaseMonthly: value })}
             prefix="$"
             min={0}
           />

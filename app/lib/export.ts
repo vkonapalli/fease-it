@@ -63,7 +63,6 @@ export function exportScenarioToCSV(scenario: ScenarioResult, projectName: strin
     ["Legal & Due Diligence", scenario.costBreakdown.legalDueDiligence],
     ["Construction", scenario.costBreakdown.construction],
     ["Development", scenario.costBreakdown.development],
-    ["Operating Reserve", scenario.costBreakdown.operatingReserve],
     ["Financing", scenario.costBreakdown.financing],
     ["Marketing", scenario.costBreakdown.marketing],
     ["Holding", scenario.costBreakdown.holding],

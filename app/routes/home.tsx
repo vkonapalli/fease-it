@@ -12,6 +12,8 @@ import { JVInputs } from "~/components/inputs/JVInputs";
 import { CashflowInputs } from "~/components/inputs/CashflowInputs";
 import { BudgetVsActualInputs } from "~/components/inputs/BudgetVsActualInputs";
 import { SDAInputs } from "~/components/inputs/SDAInputs";
+import { CapitalStackInputs } from "~/components/inputs/CapitalStackInputs";
+import { CapitalSpreadInputs } from "~/components/inputs/CapitalSpreadInputs";
 import { CopyScenarioDialog } from "~/components/inputs/CopyScenarioDialog";
 import { SummaryCards } from "~/components/results/SummaryCards";
 import { ScenarioTabs } from "~/components/results/ScenarioTabs";
@@ -24,6 +26,7 @@ import { BudgetVsActualTable } from "~/components/results/BudgetVsActualTable";
 import { YearlyProjectionTable } from "~/components/results/YearlyProjectionTable";
 import { SDAResults } from "~/components/results/SDAResults";
 import { ScenarioComparison } from "~/components/results/ScenarioComparison";
+import { DeficitCard } from "~/components/results/DeficitCard";
 import { useAppStore } from "~/stores/appStore";
 import { calculateFeasibility } from "~/lib/calculations";
 import { getScenarios, createScenario, updateScenario, deleteScenario } from "~/services/projectService";
@@ -282,6 +285,8 @@ export default function Home() {
                 <DevelopmentStrategyInputs />
                 <DevelopmentInputs />
                 <FinancingInputs />
+                <CapitalStackInputs />
+                <CapitalSpreadInputs />
                 <RevenueInputs />
                 <OperatingInputs />
                 <JVInputs />
@@ -299,6 +304,14 @@ export default function Home() {
             ) : activeResult && results ? (
               <>
                 <SummaryCards results={activeResult} />
+                <DeficitCard
+                  deficit={activeResult.deficit}
+                  totalProjectCost={activeResult.totalProjectCost}
+                  seniorDebtAmount={activeResult.seniorDebtAmount}
+                  mezzanineDebtAmount={activeResult.mezzanineDebtAmount}
+                  privateLendingAmount={activeResult.privateLendingAmount}
+                  committedCapital={activeResult.committedCapital}
+                />
                 <ScenarioTabs scenarios={results.scenarios} activeScenario={results.activeScenario} />
                 <ComparisonTable comparison={activeResult.comparison} />
                 <CostBreakdownChart costs={activeResult.costBreakdown} />

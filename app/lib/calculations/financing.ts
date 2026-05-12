@@ -15,14 +15,31 @@ export interface LoanCalculation {
   secondMonthlyPayment?: number;
 }
 
+function getLoanBase(
+  financing: FinancingInputs,
+  propertyValue: number,
+  netGrv: number,
+  netProjectCosts: number,
+  isSecond: boolean
+): number {
+  const base = isSecond
+    ? (financing.secondLvrBase ?? financing.lvrBase)
+    : financing.lvrBase;
+  return base === "net-grv" ? netGrv : netProjectCosts;
+}
+
 export function calculateLoan({
   propertyValue,
   financing,
   totalCosts,
+  netGrv = propertyValue,
+  netProjectCosts = totalCosts,
 }: {
   propertyValue: number;
   financing: FinancingInputs;
   totalCosts: number;
+  netGrv?: number;
+  netProjectCosts?: number;
 }): LoanCalculation {
   const {
     lvr,
@@ -37,7 +54,8 @@ export function calculateLoan({
   } = financing;
 
   // Primary loan
-  const loanAmount = propertyValue * (lvr / 100);
+  const primaryBase = getLoanBase(financing, propertyValue, netGrv, netProjectCosts, false);
+  const loanAmount = primaryBase * (lvr / 100);
   const equityRequired = propertyValue - loanAmount;
 
   // Fees based on loan amount
@@ -47,8 +65,7 @@ export function calculateLoan({
   const totalFees = establishmentFee + brokerFee + settlementFee + deferredFee;
 
   // Total cash required = equity + all other costs + fees
-  // NOT: totalCosts - loan + (propertyValue - loan) which double counts
-  const cashRequired = equityRequired + totalCosts - (propertyValue - equityRequired) + totalFees;
+  const cashRequired = equityRequired + totalCosts - loanAmount + totalFees;
 
   // Monthly interest-only payment
   const monthlyPayment = (loanAmount * (interestRate / 100)) / 12;
@@ -59,7 +76,8 @@ export function calculateLoan({
   let secondMonthlyPayment: number | undefined;
 
   if (secondLvr && secondLvr > 0) {
-    secondLoanAmount = propertyValue * (secondLvr / 100);
+    const secondBase = getLoanBase(financing, propertyValue, netGrv, netProjectCosts, true);
+    secondLoanAmount = secondBase * (secondLvr / 100);
     secondMonthlyPayment = (secondLoanAmount * ((secondInterestRate ?? interestRate) / 100)) / 12;
   }
 
@@ -85,7 +103,9 @@ export function compareLVRScenarios(
   propertyValue: number,
   scenarios: { lvr: number; interestRate: number }[],
   totalCosts: number,
-  financing: FinancingInputs
+  financing: FinancingInputs,
+  netGrv?: number,
+  netProjectCosts?: number
 ): {
   lvr: number;
   loan: number;
@@ -98,6 +118,8 @@ export function compareLVRScenarios(
       propertyValue,
       financing: { ...financing, lvr, interestRate },
       totalCosts,
+      netGrv,
+      netProjectCosts,
     });
 
     return {

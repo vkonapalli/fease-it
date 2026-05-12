@@ -10,9 +10,9 @@ interface SDAResultsProps {
 export function SDAResults({ sdaConfig }: SDAResultsProps) {
   const result = calculateSDA({
     units: sdaConfig.units,
-    sdaBasicMonthly: sdaConfig.sdaBasicWeekly,
-    rrcMonthly: sdaConfig.rrcWeekly,
-    ooaLeaseMonthly: sdaConfig.ooaLeaseWeekly,
+    sdaBasicMonthly: sdaConfig.sdaBasicMonthly,
+    rrcMonthly: sdaConfig.rrcMonthly,
+    ooaLeaseMonthly: sdaConfig.ooaLeaseMonthly,
     sdaScenario: sdaConfig.sdaScenario,
     landlordSharePercent: sdaConfig.landlordSharePercent,
     providerFeePercent: sdaConfig.providerFeePercent,

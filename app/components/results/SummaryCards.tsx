@@ -61,6 +61,28 @@ export function SummaryCards({ results }: SummaryCardsProps) {
           </CardContent>
         </Card>
 
+        {results.marginSchemeGst > 0 && (
+          <Card className="col-span-2">
+            <CardHeader>
+              <CardTitle className="text-sm">Margin Scheme GST</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xl font-bold font-mono text-primary">{formatCurrency(results.marginSchemeGst)}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {results.salesCommission > 0 && (
+          <Card className="col-span-2">
+            <CardHeader>
+              <CardTitle className="text-sm">Sales Commission</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xl font-bold font-mono">{formatCurrency(results.salesCommission)}</p>
+            </CardContent>
+          </Card>
+        )}
+
         <Card variant="highlighted" className="col-span-2">
           <CardHeader>
             <CardTitle className="text-sm">Profit</CardTitle>
@@ -80,6 +102,20 @@ export function SummaryCards({ results }: SummaryCardsProps) {
           </CardContent>
         </Card>
       </div>
+
+      {results.cgtEstimate > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Estimated Tax Liability</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg font-bold font-mono">{formatCurrency(results.cgtEstimate)}</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Consult your accountant. Development profits may be treated as ordinary income.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {results.annualRentalIncome > 0 && (
         <div className="grid grid-cols-3 gap-4">

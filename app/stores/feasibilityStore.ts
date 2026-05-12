@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import { useAppStore } from "./appStore";
 import type { FeasibilityInputs } from "~/types";
 
@@ -15,7 +16,7 @@ export function useFeasibilityStore(): {
   setResults: (results: never) => void; // no-op; results are derived
   resetInputs: () => void;
 } {
-  const scenario = useAppStore((s) => s.getActiveScenario());
+  const scenario = useAppStore(useShallow((s) => s.getActiveScenario()));
   const updateActiveInputs = useAppStore((s) => s.updateActiveInputs);
 
   const inputs = scenario?.inputs ?? {} as FeasibilityInputs;

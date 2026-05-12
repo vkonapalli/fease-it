@@ -1,12 +1,13 @@
+import { useMemo } from "react";
 import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Toggle } from "~/components/ui/Toggle";
+import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
 import { useFeasibilityStore } from "~/stores/feasibilityStore";
 import type { GSTTreatment } from "~/types";
 
 const GST_OPTIONS: { label: string; value: GSTTreatment }[] = [
   { label: "GST-Free (Existing Residential)", value: "gst-free" },
-  { label: "Margin Scheme", value: "margin-scheme" },
   { label: "Full GST (10%)", value: "full-gst" },
   { label: "Input Taxed (Rental)", value: "input-taxed" },
   { label: "Going Concern", value: "going-concern" },
@@ -14,29 +15,55 @@ const GST_OPTIONS: { label: string; value: GSTTreatment }[] = [
 
 export function RevenueInputs() {
   const { inputs, setInputs } = useFeasibilityStore();
-  const { revenue } = inputs;
+  const { revenue, property, development } = inputs;
+
+  const totalRevenue = useMemo(() => {
+    switch (development.strategy.pricingModel) {
+      case "average":
+        return development.strategy.averagePricePerLot * development.numDwellings;
+      case "individual":
+        return development.lots.reduce((sum, l) => sum + l.salePrice, 0);
+      case "per-sqm":
+        return development.lots.reduce((sum, l) => sum + development.strategy.pricePerSqm * l.landAreaSqm, 0);
+      case "group-size":
+        return development.lots.reduce((sum, l) => {
+          const group = development.strategy.lotSizeGroups.find(
+            (g) => l.landAreaSqm >= g.minSqm && l.landAreaSqm <= g.maxSqm
+          );
+          return sum + (group?.pricePerLot ?? l.salePrice);
+        }, 0);
+      default:
+        return development.lots.reduce((sum, l) => sum + l.salePrice, 0);
+    }
+  }, [development]);
 
   return (
     <Collapsible title="Revenue & GST">
       <div className="space-y-4">
-        <Toggle
-          label="GST Treatment"
-          options={GST_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
-          value={revenue.gst.treatment}
-          onChange={(value) =>
-            setInputs({
-              revenue: {
-                ...revenue,
-                gst: { ...revenue.gst, treatment: value as GSTTreatment },
-              },
-            })
-          }
-        />
+        {/* Margin Scheme Toggle */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-gray-700">Apply Margin Scheme</span>
+          <Toggle
+            options={[
+              { label: "Off", value: false },
+              { label: "On", value: true },
+            ]}
+            value={revenue.applyMarginScheme}
+            onChange={(value) =>
+              setInputs({
+                revenue: {
+                  ...revenue,
+                  applyMarginScheme: value as boolean,
+                },
+              })
+            }
+          />
+        </div>
 
-        {revenue.gst.treatment === "margin-scheme" && (
+        {revenue.applyMarginScheme && (
           <NumberField
             label="Cost Base per Lot (for Margin Scheme)"
-            value={revenue.gst.costBasePerLot ?? inputs.property.purchasePrice / inputs.development.numDwellings}
+            value={revenue.gst.costBasePerLot ?? property.purchasePrice / development.numDwellings}
             onChange={(value) =>
               setInputs({
                 revenue: {
@@ -50,6 +77,22 @@ export function RevenueInputs() {
           />
         )}
 
+        {!revenue.applyMarginScheme && (
+          <Toggle
+            label="GST Treatment"
+            options={GST_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
+            value={revenue.gst.treatment}
+            onChange={(value) =>
+              setInputs({
+                revenue: {
+                  ...revenue,
+                  gst: { ...revenue.gst, treatment: value as GSTTreatment },
+                },
+              })
+            }
+          />
+        )}
+
         <NumberField
           label="Capital Growth Rate (p.a.)"
           value={revenue.capitalGrowthRate * 100}
@@ -59,6 +102,54 @@ export function RevenueInputs() {
           max={50}
           step={0.1}
         />
+
+        {/* Sales Commission */}
+        <div className="border-t border-gray-200 pt-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-2">Sales Commission</h4>
+          <Toggle
+            options={[
+              { label: "% Based", value: "percentage" },
+              { label: "Flat Fee", value: "flat" },
+            ]}
+            value={revenue.salesCommissionType}
+            onChange={(value) =>
+              setInputs({
+                revenue: {
+                  ...revenue,
+                  salesCommissionType: value as "percentage" | "flat",
+                },
+              })
+            }
+          />
+          {revenue.salesCommissionType === "percentage" ? (
+            <div className="flex items-center mt-2">
+              <NumberField
+                label="Commission %"
+                value={revenue.salesCommissionPercent}
+                onChange={(value) => setInputs({ revenue: { ...revenue, salesCommissionPercent: value } })}
+                suffix="%"
+                min={0}
+                max={100}
+                step={0.1}
+              />
+              <ComputedDollarDisplay
+                percentage={revenue.salesCommissionPercent}
+                baseAmount={totalRevenue}
+                label="≈"
+              />
+            </div>
+          ) : (
+            <div className="mt-2">
+              <NumberField
+                label="Flat Fee"
+                value={revenue.salesCommissionFlat}
+                onChange={(value) => setInputs({ revenue: { ...revenue, salesCommissionFlat: value } })}
+                prefix="$"
+                min={0}
+              />
+            </div>
+          )}
+        </div>
 
         <div className="border-t border-gray-200 pt-4">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Rental Assumptions (Hold Scenarios)</h4>

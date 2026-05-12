@@ -17,6 +17,7 @@ const SCENARIOS: ProjectScenario[] = [
   "rental-hold",
   "land-plus-build",
   "build-hold",
+  "sda-hold",
 ];
 
 function getScenarioName(scenario: ProjectScenario): string {
@@ -43,6 +44,7 @@ export function calculateScenario(
     revenue: inputs.revenue,
     operating: inputs.operating,
     jv: inputs.jv,
+    capitalStack: inputs.capitalStack,
   });
 
   // LVR Comparison
@@ -52,6 +54,8 @@ export function calculateScenario(
       propertyValue: inputs.property.purchasePrice,
       financing: { ...inputs.financing, lvr: lvrOption },
       totalCosts: profitResult.totalCosts,
+      netGrv: profitResult.totalRevenue,
+      netProjectCosts: profitResult.totalCosts,
     });
 
     const profitAfterInterest =
@@ -74,7 +78,7 @@ export function calculateScenario(
   const sensitivity = calculateScenarioSensitivity(inputs, scenario);
 
   // Cashflow
-  const cashflow = generateCashflow(inputs.cashflow, profitResult);
+  const cashflow = generateCashflow(inputs.cashflow, profitResult, inputs.financing.interestRate);
 
   return {
     scenario,
@@ -103,6 +107,18 @@ export function calculateScenario(
     netOperatingIncome: profitResult.netOperatingIncome ?? 0,
     capRate: profitResult.capRate ?? 0,
     yearlyProjections: profitResult.yearlyProjections,
+    cgtEstimate: profitResult.cgtEstimate,
+    marginSchemeGst: profitResult.marginSchemeGst,
+    salesCommission: profitResult.salesCommission,
+    deficit: profitResult.deficit,
+    totalProjectCost: profitResult.totalProjectCost,
+    seniorDebtAmount: profitResult.seniorDebtAmount,
+    mezzanineDebtAmount: profitResult.mezzanineDebtAmount,
+    privateLendingAmount: profitResult.privateLendingAmount,
+    developerEquityAmount: profitResult.developerEquityAmount,
+    otherEquityAmount: profitResult.otherEquityAmount,
+    profitSharingAmount: profitResult.profitSharingAmount,
+    committedCapital: profitResult.committedCapital,
   };
 }
 
@@ -119,12 +135,15 @@ function buildSensitivityRow(
     revenue: inputs.revenue,
     operating: inputs.operating,
     jv: inputs.jv,
+    capitalStack: inputs.capitalStack,
   });
 
   const loanCalc = calculateLoan({
     propertyValue: inputs.property.purchasePrice,
     financing: inputs.financing,
     totalCosts: profitResult.totalCosts,
+    netGrv: profitResult.totalRevenue,
+    netProjectCosts: profitResult.totalCosts,
   });
 
   const irr =
@@ -236,7 +255,8 @@ function calculateScenarioSensitivity(
 
 function generateCashflow(
   config: CashflowConfig,
-  profitResult: ReturnType<typeof calculateProfit>
+  profitResult: ReturnType<typeof calculateProfit>,
+  interestRate: number
 ): CashflowRow[] {
   const rows: CashflowRow[] = [];
   let cumulative = 0;
@@ -278,7 +298,7 @@ function generateCashflow(
 
       // Add interest payment
       const interest = profitResult.loanAmount > 0
-        ? (profitResult.loanAmount * 0.06) / 12
+        ? (profitResult.loanAmount * (interestRate / 100)) / 12
         : 0;
       if (interest > 0) {
         expenses += interest;

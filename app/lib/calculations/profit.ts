@@ -12,6 +12,7 @@ import type {
   ProjectScenario,
   GSTConfig,
   LotConfig,
+  CapitalStackConfig,
 } from "~/types";
 import { calculateGST, calculateGSTForLot } from "./gst";
 import { calculateLoan } from "./financing";
@@ -48,7 +49,7 @@ function calculateLotPrice(lot: LotConfig, development: DevelopmentInputs): numb
 /**
  * Calculate total revenue and per-lot prices based on development strategy.
  */
-function calculateRevenue(development: DevelopmentInputs): {
+export function calculateRevenue(development: DevelopmentInputs): {
   lotPrices: number[];
   totalRevenue: number;
 } {
@@ -78,6 +79,33 @@ export interface ProfitBreakdown {
   annualOperatingExpenses?: number;
   netOperatingIncome?: number;
   capRate?: number;
+  // Tax & commission
+  cgtEstimate: number;
+  marginSchemeGst: number;
+  salesCommission: number;
+  // Capital stack
+  deficit: number;
+  totalProjectCost: number;
+  seniorDebtAmount: number;
+  mezzanineDebtAmount: number;
+  privateLendingAmount: number;
+  developerEquityAmount: number;
+  otherEquityAmount: number;
+  profitSharingAmount: number;
+  committedCapital: number;
+}
+
+function getGSTAdjustedAmount(amount: number, treatment: "free" | "inclusive" | "exclusive"): number {
+  switch (treatment) {
+    case "free":
+      return amount;
+    case "inclusive":
+      return amount; // amount already includes GST
+    case "exclusive":
+      return amount * 1.1; // add 10% GST
+    default:
+      return amount;
+  }
 }
 
 function calculateAcquisitionCosts(property: AcquisitionInputs): {
@@ -102,9 +130,11 @@ function calculateAcquisitionCosts(property: AcquisitionInputs): {
       continue;
     }
 
-    const amount = cost.isPercentage
+    const rawAmount = cost.isPercentage
       ? property.purchasePrice * (cost.amount / 100)
       : cost.amount;
+
+    const amount = getGSTAdjustedAmount(rawAmount, cost.gstTreatment);
 
     total += amount;
 
@@ -139,17 +169,17 @@ function calculateDevelopmentCosts(
   // Global development costs
   let other = 0;
   for (const cost of development.globalCosts) {
-    let amount = cost.isPercentage
+    let rawAmount = cost.isPercentage
       ? totalRevenue * (cost.amount / 100)
       : cost.amount;
     if (cost.applyPerLot) {
-      amount *= development.numDwellings;
+      rawAmount *= development.numDwellings;
     }
-    other += amount;
+    other += getGSTAdjustedAmount(rawAmount, cost.gstTreatment);
   }
 
   // Contingency on total development costs
-  const subtotal = construction + other + development.operatingReserve;
+  const subtotal = construction + other;
   const contingency = subtotal * (development.contingencyPercent / 100);
 
   return {
@@ -255,6 +285,7 @@ export function calculateProfit({
   revenue,
   operating,
   jv,
+  capitalStack,
 }: {
   scenario: ProjectScenario;
   property: AcquisitionInputs;
@@ -263,6 +294,7 @@ export function calculateProfit({
   revenue: RevenueInputs;
   operating: OperatingInputs;
   jv: JVConfig;
+  capitalStack: CapitalStackConfig;
 }): ProfitBreakdown {
   const acquisition = calculateAcquisitionCosts(property);
   const propertyValue = property.purchasePrice;
@@ -270,12 +302,15 @@ export function calculateProfit({
   // --- Lot-level calculations ---
   const { lotPrices, totalRevenue } = calculateRevenue(development);
 
+  const costBasePerLot = revenue.gst.costBasePerLot ?? property.purchasePrice / development.numDwellings;
+
   const lotResults: LotResult[] = development.lots.map((lot, index) => {
     const salePrice = lotPrices[index];
+    const gstTreatment = revenue.applyMarginScheme ? "margin-scheme" : revenue.gst.treatment;
     const gst = calculateGSTForLot(
       salePrice,
-      revenue.gst.costBasePerLot ?? property.purchasePrice / development.numDwellings,
-      revenue.gst.treatment
+      costBasePerLot,
+      gstTreatment
     );
 
     const constructionCost = lot.hasConstruction
@@ -302,17 +337,28 @@ export function calculateProfit({
 
   // --- Revenue ---
   const totalGst = lotResults.reduce((sum, lot) => sum + lot.gstPayable, 0);
+  const marginSchemeGst = revenue.applyMarginScheme ? totalGst : 0;
   const netRevenue = lotResults.reduce((sum, lot) => sum + lot.netRevenue, 0);
 
   // --- Development Costs ---
   const devCosts = calculateDevelopmentCosts(development, totalRevenue);
 
   // --- Financing ---
+  const netGrv = netRevenue;
+  const netProjectCosts = acquisition.total + devCosts.total;
   const loanCalc = calculateLoan({
     propertyValue,
     financing,
     totalCosts: acquisition.total + devCosts.total,
+    netGrv,
+    netProjectCosts,
   });
+
+  // --- Sales Commission ---
+  const salesCommission =
+    revenue.salesCommissionType === "percentage"
+      ? totalRevenue * (revenue.salesCommissionPercent / 100)
+      : revenue.salesCommissionFlat;
 
   // --- Marketing ---
   // Marketing is typically a % of revenue + fixed costs
@@ -336,11 +382,11 @@ export function calculateProfit({
     legalDueDiligence: acquisition.legalDueDiligence,
     construction: devCosts.construction,
     development: devCosts.other,
-    operatingReserve: development.operatingReserve,
     financing: loanCalc.totalFees + loanCalc.totalInterestOverTerm,
     marketing: marketingCost,
     holding: holdingCost,
     contingency: devCosts.contingency,
+    salesCommission,
     total: 0,
   };
 
@@ -348,11 +394,34 @@ export function calculateProfit({
     costBreakdown.acquisition +
     costBreakdown.construction +
     costBreakdown.development +
-    costBreakdown.operatingReserve +
     costBreakdown.financing +
     costBreakdown.marketing +
     costBreakdown.holding +
-    costBreakdown.contingency;
+    costBreakdown.contingency +
+    costBreakdown.salesCommission;
+
+  // --- Capital Stack ---
+  const totalProjectCost = costBreakdown.total;
+  const seniorDebtAmount = loanCalc.loanAmount;
+  const mezzanineDebtAmount = loanCalc.secondLoanAmount ?? 0;
+
+  const privateLendingAmount = capitalStack.privateLending.isPercentageOfCost
+    ? totalProjectCost * (capitalStack.privateLending.amount / 100)
+    : capitalStack.privateLending.amount;
+
+  const otherEquityAmount = capitalStack.otherEquity.isPercentageOfCost
+    ? totalProjectCost * (capitalStack.otherEquity.amount / 100)
+    : capitalStack.otherEquity.amount;
+
+  const profitSharingAmount = capitalStack.profitSharing.amountCommitted;
+
+  let developerEquityAmount = capitalStack.developerEquity.isAutoComputed
+    ? totalProjectCost - seniorDebtAmount - mezzanineDebtAmount - privateLendingAmount - otherEquityAmount - profitSharingAmount
+    : capitalStack.developerEquity.amount;
+  developerEquityAmount = Math.max(0, developerEquityAmount);
+
+  const committedCapital = developerEquityAmount + otherEquityAmount + profitSharingAmount;
+  const deficit = totalProjectCost - (seniorDebtAmount + mezzanineDebtAmount + privateLendingAmount + committedCapital);
 
   // --- Profit ---
   const profit = netRevenue - costBreakdown.total;
@@ -424,6 +493,19 @@ export function calculateProfit({
     capRate = propertyValue > 0 ? (netOperatingIncome / propertyValue) * 100 : 0;
   }
 
+  // --- CGT Estimate ---
+  const holdPeriodMonths =
+    scenario === "rental-hold" || scenario === "build-hold"
+      ? operating.holdPeriodYears * 12
+      : development.timeline.timelineMonths;
+  const cgtDiscount = holdPeriodMonths > 12 ? 0.5 : 1;
+  const cgtRate = 0.45;
+  const cgtEstimate = lotResults.reduce((sum, lot) => {
+    if (!lot.isSold) return sum;
+    const gain = lot.salePrice - costBasePerLot;
+    return sum + Math.max(0, gain) * cgtDiscount * cgtRate;
+  }, 0);
+
   // --- Yearly Projections ---
   const yearlyProjections = buildYearlyProjections(
     scenario,
@@ -457,5 +539,17 @@ export function calculateProfit({
     annualOperatingExpenses,
     netOperatingIncome,
     capRate,
+    cgtEstimate,
+    marginSchemeGst,
+    salesCommission,
+    deficit,
+    totalProjectCost,
+    seniorDebtAmount,
+    mezzanineDebtAmount,
+    privateLendingAmount,
+    developerEquityAmount,
+    otherEquityAmount,
+    profitSharingAmount,
+    committedCapital,
   };
 }
