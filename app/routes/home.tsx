@@ -30,6 +30,7 @@ import { DeficitCard } from "~/components/results/DeficitCard";
 import { useAppStore } from "~/stores/appStore";
 import { calculateFeasibility } from "~/lib/calculations";
 import { getScenarios, createScenario, updateScenario, deleteScenario } from "~/services/projectService";
+import { getCurrentUser, isSupabaseConfigured } from "~/services/authService";
 import type { Scenario as AppScenario } from "~/stores/appStore";
 import { Plus, Loader2, Copy } from "lucide-react";
 import { Button } from "~/components/ui/Button";
@@ -49,11 +50,27 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [copyDialogId, setCopyDialogId] = useState<string | null>(null);
 
-  // Redirect if no project selected
+  // Auth guard + project redirect
   useEffect(() => {
-    if (!projectId) {
-      navigate("/projects");
+    async function guard() {
+      try {
+        if (isSupabaseConfigured()) {
+          const user = await getCurrentUser();
+          if (!user) {
+            navigate("/login");
+            return;
+          }
+        }
+        if (!projectId) {
+          navigate("/projects");
+        }
+      } catch {
+        navigate("/login");
+      } finally {
+        setLoading(false);
+      }
     }
+    guard();
   }, [projectId, navigate]);
 
   // Load scenarios from Supabase

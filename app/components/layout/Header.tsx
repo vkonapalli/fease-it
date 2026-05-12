@@ -1,18 +1,25 @@
 import { Button } from "~/components/ui/Button";
-import { Calculator, Download, FolderOpen } from "lucide-react";
+import { Calculator, Download, FolderOpen, LogOut } from "lucide-react";
 import { useFeasibilityStore } from "~/stores/feasibilityStore";
 import { exportAllScenariosToCSV } from "~/lib/export";
 import { useAppStore } from "~/stores/appStore";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { signOut } from "~/services/authService";
 
 export function Header() {
   const { inputs } = useFeasibilityStore();
   const projectName = useAppStore((s) => s.projectName);
+  const navigate = useNavigate();
 
   const handleExport = () => {
     // TODO: update export to work with multi-scenario structure
     console.log("Export triggered");
   };
+
+  async function handleSignOut() {
+    await signOut();
+    navigate("/login");
+  }
 
   return (
     <header className="border-b border-gray-200 bg-white px-4 py-3">
@@ -34,6 +41,9 @@ export function Header() {
           </Link>
           <Button variant="secondary" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-1" /> Export
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-error hover:bg-red-50">
+            <LogOut className="h-4 w-4 mr-1" /> Sign out
           </Button>
         </div>
       </div>

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { Plus, FolderOpen, Trash2, Loader2 } from "lucide-react";
+import { Plus, FolderOpen, Trash2, Loader2, LogOut } from "lucide-react";
 import { Button } from "~/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
-import { signInAnonymously, getCurrentUser } from "~/services/authService";
+import { getCurrentUser, signOut, isSupabaseConfigured } from "~/services/authService";
 import { getProjects, createProject, deleteProject } from "~/services/projectService";
 import type { Project } from "~/services/projectService";
 import { useAppStore } from "~/stores/appStore";
@@ -15,24 +15,37 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
       try {
+        if (!isSupabaseConfigured()) {
+          setLoading(false);
+          return;
+        }
         const user = await getCurrentUser();
         if (!user) {
-          await signInAnonymously();
+          navigate("/login");
+          return;
         }
+        setUserEmail(user.email ?? null);
         const data = await getProjects();
         setProjects(data);
       } catch (err) {
         console.warn("Supabase not configured or init failed:", err);
+        navigate("/login");
       } finally {
         setLoading(false);
       }
     }
     init();
-  }, []);
+  }, [navigate]);
+
+  async function handleSignOut() {
+    await signOut();
+    navigate("/login");
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -80,7 +93,19 @@ export default function ProjectsPage() {
       <header className="border-b border-gray-200 bg-white px-4 py-4">
         <div className="mx-auto max-w-5xl flex items-center justify-between">
           <h1 className="text-2xl font-bold text-primary">Fease-it</h1>
-          <p className="text-sm text-gray-500">Projects</p>
+          <div className="flex items-center gap-4">
+            {userEmail && (
+              <span className="text-sm text-gray-500 hidden sm:inline">{userEmail}</span>
+            )}
+            <button
+              onClick={handleSignOut}
+              className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-error transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
+          </div>
         </div>
       </header>
 
