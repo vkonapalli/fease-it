@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { Header } from "~/components/layout/Header";
 import { PropertyInputs } from "~/components/inputs/PropertyInputs";
 import { TimelineInputs } from "~/components/inputs/TimelineInputs";
+import { DevelopmentStrategyInputs } from "~/components/inputs/DevelopmentStrategyInputs";
 import { DevelopmentInputs } from "~/components/inputs/DevelopmentInputs";
 import { FinancingInputs } from "~/components/inputs/FinancingInputs";
 import { RevenueInputs } from "~/components/inputs/RevenueInputs";
@@ -278,6 +279,7 @@ export default function Home() {
               <>
                 <PropertyInputs />
                 <TimelineInputs />
+                <DevelopmentStrategyInputs />
                 <DevelopmentInputs />
                 <FinancingInputs />
                 <RevenueInputs />

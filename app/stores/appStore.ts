@@ -91,6 +91,15 @@ function createDefaultInputs(): FeasibilityInputs {
         contractDate: "",
         timelineMonths: 12,
       },
+      strategy: {
+        strategyType: "sub-division",
+        pricingModel: "average",
+        minLots: null,
+        maxLots: null,
+        averagePricePerLot: 1775000,
+        pricePerSqm: 0,
+        lotSizeGroups: [],
+      },
     },
     financing: {
       lvr: 70,

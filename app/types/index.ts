@@ -67,6 +67,41 @@ export interface TimelineInputs {
   timelineMonths: number;     // Total project duration in months
 }
 
+// --- Development Strategy ---
+export type DevelopmentStrategyType =
+  | "sub-division"
+  | "townhouse"
+  | "apartments"
+  | "single-house";
+
+export type PricingModel =
+  | "average"
+  | "individual"
+  | "group-size"
+  | "per-sqm";
+
+export interface LotSizeGroup {
+  id: string;
+  name: string;
+  minSqm: number;
+  maxSqm: number;
+  pricePerLot: number;
+}
+
+export interface DevelopmentStrategy {
+  strategyType: DevelopmentStrategyType;
+  pricingModel: PricingModel;
+  // For stress test
+  minLots: number | null;
+  maxLots: number | null;
+  // For average model
+  averagePricePerLot: number;
+  // For per-sqm model
+  pricePerSqm: number;
+  // For group-size model
+  lotSizeGroups: LotSizeGroup[];
+}
+
 export interface DevelopmentInputs {
   numDwellings: number;
   lots: LotConfig[];          // Per-lot configuration
@@ -80,6 +115,8 @@ export interface DevelopmentInputs {
   contingencyPercent: number;
   // Project timeline
   timeline: TimelineInputs;
+  // Development strategy & pricing
+  strategy: DevelopmentStrategy;
 }
 
 // --- Financing (fully configurable) ---

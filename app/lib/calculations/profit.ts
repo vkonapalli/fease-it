@@ -11,10 +11,53 @@ import type {
   YearlyProjection,
   ProjectScenario,
   GSTConfig,
+  LotConfig,
 } from "~/types";
 import { calculateGST, calculateGSTForLot } from "./gst";
 import { calculateLoan } from "./financing";
 import { calculateStampDuty } from "./stampDuty";
+
+/**
+ * Calculate sale price for a lot based on the development strategy pricing model.
+ */
+function calculateLotPrice(lot: LotConfig, development: DevelopmentInputs): number {
+  const { strategy } = development;
+
+  switch (strategy.pricingModel) {
+    case "average":
+      return strategy.averagePricePerLot;
+
+    case "individual":
+      return lot.salePrice;
+
+    case "per-sqm":
+      return strategy.pricePerSqm * lot.landAreaSqm;
+
+    case "group-size": {
+      const group = strategy.lotSizeGroups.find(
+        (g) => lot.landAreaSqm >= g.minSqm && lot.landAreaSqm <= g.maxSqm
+      );
+      return group?.pricePerLot ?? lot.salePrice;
+    }
+
+    default:
+      return lot.salePrice;
+  }
+}
+
+/**
+ * Calculate total revenue and per-lot prices based on development strategy.
+ */
+function calculateRevenue(development: DevelopmentInputs): {
+  lotPrices: number[];
+  totalRevenue: number;
+} {
+  const prices = development.lots.map((lot) => calculateLotPrice(lot, development));
+  return {
+    lotPrices: prices,
+    totalRevenue: prices.reduce((sum, p) => sum + p, 0),
+  };
+}
 
 export interface ProfitBreakdown {
   totalRevenue: number;
@@ -225,9 +268,12 @@ export function calculateProfit({
   const propertyValue = property.purchasePrice;
 
   // --- Lot-level calculations ---
-  const lotResults: LotResult[] = development.lots.map((lot) => {
+  const { lotPrices, totalRevenue } = calculateRevenue(development);
+
+  const lotResults: LotResult[] = development.lots.map((lot, index) => {
+    const salePrice = lotPrices[index];
     const gst = calculateGSTForLot(
-      lot.salePrice,
+      salePrice,
       revenue.gst.costBasePerLot ?? property.purchasePrice / development.numDwellings,
       revenue.gst.treatment
     );
@@ -245,9 +291,9 @@ export function calculateProfit({
     return {
       id: lot.id,
       name: lot.name,
-      salePrice: lot.salePrice,
+      salePrice,
       gstPayable: gst,
-      netRevenue: isSold ? lot.salePrice - gst : 0,
+      netRevenue: isSold ? salePrice - gst : 0,
       constructionCost,
       isSold,
       isHeld: lot.isHeld,
@@ -255,7 +301,6 @@ export function calculateProfit({
   });
 
   // --- Revenue ---
-  const totalRevenue = lotResults.reduce((sum, lot) => sum + lot.salePrice, 0);
   const totalGst = lotResults.reduce((sum, lot) => sum + lot.gstPayable, 0);
   const netRevenue = lotResults.reduce((sum, lot) => sum + lot.netRevenue, 0);
 
