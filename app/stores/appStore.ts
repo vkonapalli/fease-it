@@ -72,6 +72,11 @@ function createDefaultInputs(): FeasibilityInputs {
       constructionCostPerSqm: 2430,
       operatingReserve: 129040,
       contingencyPercent: 2,
+      timeline: {
+        settlementDate: "",
+        contractDate: "",
+        timelineMonths: 12,
+      },
     },
     financing: {
       lvr: 70,

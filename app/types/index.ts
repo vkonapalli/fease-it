@@ -61,6 +61,12 @@ export interface DevelopmentCostItem {
   applyPerLot: boolean;       // If true, amount × numLots
 }
 
+export interface TimelineInputs {
+  settlementDate: string;     // ISO date
+  contractDate: string;       // ISO date
+  timelineMonths: number;     // Total project duration in months
+}
+
 export interface DevelopmentInputs {
   numDwellings: number;
   lots: LotConfig[];          // Per-lot configuration
@@ -72,6 +78,8 @@ export interface DevelopmentInputs {
   operatingReserve: number;
   // Contingency as % of total development cost
   contingencyPercent: number;
+  // Project timeline
+  timeline: TimelineInputs;
 }
 
 // --- Financing (fully configurable) ---

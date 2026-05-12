@@ -3,8 +3,10 @@ import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Input } from "~/components/ui/Input";
 import { Button } from "~/components/ui/Button";
+import { AddressAutocomplete } from "~/components/inputs/AddressAutocomplete";
 import { useFeasibilityStore } from "~/stores/feasibilityStore";
 import { calculateStampDuty, AUSTRALIAN_STATES, formatCurrency } from "~/lib/calculations/stampDuty";
+import { calculateLandTax } from "~/lib/constants/landTax";
 import { Plus, Trash2 } from "lucide-react";
 
 export function PropertyInputs() {
@@ -16,10 +18,18 @@ export function PropertyInputs() {
     [property.location, property.purchasePrice]
   );
 
-  // Filter out any legacy stamp-duty line items from the editable list
+  const landTaxAnnual = useMemo(() => {
+    if (!property.location || !property.purchasePrice) return 0;
+    return calculateLandTax(property.location, property.purchasePrice, false);
+  }, [property.location, property.purchasePrice]);
+
+  const timelineMonths = inputs.development.timeline?.timelineMonths ?? 12;
+  const landTaxTotal = landTaxAnnual * (timelineMonths / 12);
+
+  // Filter out any legacy stamp-duty or land-tax line items from the editable list
   const editableCosts = property.costs.filter((c) => {
     const name = c.name.toLowerCase();
-    return !(name.includes("stamp") || name.includes("duty"));
+    return !(name.includes("stamp") || name.includes("duty") || name.includes("land tax"));
   });
 
   const updateCost = (id: string, updates: Partial<{ name: string; amount: number; isPercentage: boolean }>) => {
@@ -52,19 +62,38 @@ export function PropertyInputs() {
     });
   };
 
+  const handleAddressSelect = (parsed: {
+    formattedAddress: string;
+    streetNumber: string;
+    street: string;
+    suburb: string;
+    state: string;
+    postcode: string;
+    country: string;
+  }) => {
+    setInputs({
+      property: {
+        ...property,
+        address: parsed.formattedAddress,
+        suburb: parsed.suburb,
+        postcode: parsed.postcode,
+        location: parsed.state,
+      },
+    });
+  };
+
   return (
     <Collapsible title="Property & Acquisition">
       <div className="space-y-4">
         {/* Address Finder */}
         <div className="space-y-3">
-          <Input
-            label="Street Address"
+          <label className="block text-sm font-medium text-gray-700">Address</label>
+          <AddressAutocomplete
             value={property.address}
-            onChange={(e) =>
-              setInputs({ property: { ...property, address: e.target.value } })
-            }
-            placeholder="e.g. 657A Nepean Highway"
+            onSelect={handleAddressSelect}
+            placeholder="Start typing address..."
           />
+
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="Suburb"
@@ -125,9 +154,22 @@ export function PropertyInputs() {
             <span className="text-sm font-semibold text-primary">{formatCurrency(stampDuty)}</span>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Calculated for {property.location} at {property.location === "VIC" ? "6.5%" : "current rates"}.
+            Calculated for {property.location} at investment property rates.
           </p>
         </div>
+
+        {/* Auto-calculated Land Tax */}
+        {landTaxAnnual > 0 && (
+          <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-blue-900">Land Tax (auto)</span>
+              <span className="text-sm font-semibold text-blue-900">{formatCurrency(landTaxTotal)}</span>
+            </div>
+            <p className="text-xs text-blue-700 mt-1">
+              {formatCurrency(landTaxAnnual)} / year × {timelineMonths} months
+            </p>
+          </div>
+        )}
 
         <div className="border-t border-gray-200 pt-4">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Acquisition Costs</h4>
