@@ -11,6 +11,7 @@ import { JVInputs } from "~/components/inputs/JVInputs";
 import { CashflowInputs } from "~/components/inputs/CashflowInputs";
 import { BudgetVsActualInputs } from "~/components/inputs/BudgetVsActualInputs";
 import { SDAInputs } from "~/components/inputs/SDAInputs";
+import { CopyScenarioDialog } from "~/components/inputs/CopyScenarioDialog";
 import { SummaryCards } from "~/components/results/SummaryCards";
 import { ScenarioTabs } from "~/components/results/ScenarioTabs";
 import { ComparisonTable } from "~/components/results/ComparisonTable";
@@ -21,11 +22,12 @@ import { JVSummary } from "~/components/results/JVSummary";
 import { BudgetVsActualTable } from "~/components/results/BudgetVsActualTable";
 import { YearlyProjectionTable } from "~/components/results/YearlyProjectionTable";
 import { SDAResults } from "~/components/results/SDAResults";
+import { ScenarioComparison } from "~/components/results/ScenarioComparison";
 import { useAppStore } from "~/stores/appStore";
 import { calculateFeasibility } from "~/lib/calculations";
 import { getScenarios, createScenario, updateScenario, deleteScenario } from "~/services/projectService";
 import type { Scenario as AppScenario } from "~/stores/appStore";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Copy } from "lucide-react";
 import { Button } from "~/components/ui/Button";
 
 export default function Home() {
@@ -38,8 +40,10 @@ export default function Home() {
   const addScenario = useAppStore((s) => s.addScenario);
   const removeScenario = useAppStore((s) => s.removeScenario);
   const updateScenarioLocal = useAppStore((s) => s.updateScenario);
+  const duplicateScenarioWithOptions = useAppStore((s) => s.duplicateScenarioWithOptions);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [copyDialogId, setCopyDialogId] = useState<string | null>(null);
 
   // Redirect if no project selected
   useEffect(() => {
@@ -168,6 +172,11 @@ export default function Home() {
     updateScenarioLocal(id, { name });
   }
 
+  function handleCopyScenario(id: string, name: string, options: Parameters<typeof duplicateScenarioWithOptions>[2]) {
+    duplicateScenarioWithOptions(id, name, options);
+    setCopyDialogId(null);
+  }
+
   if (!projectId) return null;
 
   if (loading) {
@@ -177,6 +186,8 @@ export default function Home() {
       </div>
     );
   }
+
+  const copySource = copyDialogId ? scenarios.find((s) => s.id === copyDialogId) ?? null : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -188,7 +199,7 @@ export default function Home() {
           {scenarios.map((s) => (
             <div
               key={s.id}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${
+              className={`group flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${
                 s.id === activeScenarioId
                   ? "bg-primary text-white"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -208,12 +219,25 @@ export default function Home() {
               >
                 {s.name}
               </span>
+              {/* Copy button */}
+              <button
+                className="ml-1 text-xs opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
+                title="Copy scenario"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCopyDialogId(s.id);
+                }}
+              >
+                <Copy className="h-3 w-3" />
+              </button>
               {scenarios.length > 1 && (
                 <button
-                  className="ml-1 text-xs opacity-60 hover:opacity-100"
+                  className="ml-1 text-xs opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDeleteScenario(s.id);
+                    if (confirm(`Delete "${s.name}"?`)) {
+                      handleDeleteScenario(s.id);
+                    }
                   }}
                 >
                   ×
@@ -234,6 +258,15 @@ export default function Home() {
           {saving && <span className="text-xs text-gray-400 ml-auto">Saving...</span>}
         </div>
       </div>
+
+      {/* Copy Scenario Dialog */}
+      {copySource && (
+        <CopyScenarioDialog
+          sourceName={copySource.name}
+          onConfirm={(name, options) => handleCopyScenario(copySource.id, name, options)}
+          onCancel={() => setCopyDialogId(null)}
+        />
+      )}
 
       <main className="mx-auto max-w-7xl px-4 py-6">
         <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
@@ -258,6 +291,7 @@ export default function Home() {
 
           {/* Results Panel */}
           <div className="space-y-4">
+            <ScenarioComparison />
             {isSDA ? (
               <SDAResults sdaConfig={inputs?.sda} />
             ) : activeResult && results ? (

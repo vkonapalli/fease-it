@@ -27,6 +27,20 @@ interface AppState {
   removeScenario: (id: string) => void;
   setActiveScenario: (id: string) => void;
   duplicateScenario: (id: string) => void;
+  duplicateScenarioWithOptions: (
+    id: string,
+    name: string,
+    options: {
+      copyProperty: boolean;
+      copyDevelopment: boolean;
+      copyFinancing: boolean;
+      copyRevenue: boolean;
+      copyOperating: boolean;
+      copyJV: boolean;
+      copyCashflow: boolean;
+      copyBudget: boolean;
+    }
+  ) => void;
   setScenarios: (scenarios: Scenario[]) => void;
   getActiveScenario: () => Scenario | null;
   getActiveInputs: () => FeasibilityInputs | null;
@@ -236,6 +250,44 @@ export const useAppStore = create<AppState>()(
             ...source,
             id: crypto.randomUUID(),
             name: `${source.name} (Copy)`,
+            sortOrder: Math.max(...state.scenarios.map((s) => s.sortOrder), 0) + 1,
+            synced: false,
+            remoteId: null,
+          };
+          return {
+            scenarios: [...state.scenarios, copy],
+            activeScenarioId: copy.id,
+          };
+        }),
+
+      duplicateScenarioWithOptions: (id, name, options) =>
+        set((state) => {
+          const source = state.scenarios.find((s) => s.id === id);
+          if (!source) return state;
+
+          const defaults = createDefaultInputs();
+          const src = source.inputs;
+
+          const newInputs: FeasibilityInputs = {
+            name,
+            scenario: src.scenario,
+            property: options.copyProperty ? src.property : defaults.property,
+            development: options.copyDevelopment
+              ? src.development
+              : { ...defaults.development, timeline: src.development.timeline },
+            financing: options.copyFinancing ? src.financing : defaults.financing,
+            revenue: options.copyRevenue ? src.revenue : defaults.revenue,
+            operating: options.copyOperating ? src.operating : defaults.operating,
+            jv: options.copyJV ? src.jv : defaults.jv,
+            cashflow: options.copyCashflow ? src.cashflow : defaults.cashflow,
+            budgetVsActual: options.copyBudget ? src.budgetVsActual : defaults.budgetVsActual,
+            sda: src.sda,
+          };
+
+          const copy: Scenario = {
+            id: crypto.randomUUID(),
+            name,
+            inputs: newInputs,
             sortOrder: Math.max(...state.scenarios.map((s) => s.sortOrder), 0) + 1,
             synced: false,
             remoteId: null,
