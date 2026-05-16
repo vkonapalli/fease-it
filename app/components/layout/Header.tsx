@@ -1,19 +1,20 @@
 import { Button } from "~/components/ui/Button";
 import { Calculator, Download, FolderOpen, LogOut, Settings } from "lucide-react";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
-import { exportAllScenariosToCSV } from "~/lib/export";
 import { useAppStore } from "~/stores/appStore";
+import { exportAllScenariosToCSV } from "~/lib/export";
+import { calculateFeasibility } from "~/lib/calculations";
 import { Link, useNavigate } from "react-router";
 import { signOut } from "~/services/authService";
 
 export function Header() {
-  const { inputs } = useFeasibilityStore();
   const projectName = useAppStore((s) => s.projectName);
+  const activeScenario = useAppStore((s) => s.getActiveScenario());
   const navigate = useNavigate();
 
   const handleExport = () => {
-    // TODO: update export to work with multi-scenario structure
-    console.log("Export triggered");
+    if (!activeScenario) return;
+    const results = calculateFeasibility(activeScenario.inputs);
+    exportAllScenariosToCSV(results, projectName || "fease-it");
   };
 
   async function handleSignOut() {

@@ -47,8 +47,8 @@ There is **no test runner, linter, or formatter** configured.
 
 ## Dependency Notes
 
-- **`lucide-react ^1.14.0`** — the official package has no `1.x` releases (current is `0.x`). Verify this is the legitimate package; it may be a typo or squatting risk.
-- **Unused deps** installed but never imported: `react-hook-form`, `@hookform/resolvers`, `zod`. Safe to remove if not needed soon.
+- **`lucide-react ^0.468.0`** — verified legitimate package.
+- ~~**Unused deps** installed but never imported: `react-hook-form`, `@hookform/resolvers`, `zod`~~ — Removed.
 
 ## Conventions
 

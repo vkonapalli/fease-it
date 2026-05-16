@@ -3,7 +3,8 @@ import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Toggle } from "~/components/ui/Toggle";
 import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { useAppStore } from "~/stores/appStore";
+import { useShallow } from "zustand/react/shallow";
 
 const LVR_BASE_OPTIONS = [
   { label: "Net GRV", value: "net-grv" as const },
@@ -11,8 +12,9 @@ const LVR_BASE_OPTIONS = [
 ];
 
 export function FinancingInputs() {
-  const { inputs, setInputs } = useFeasibilityStore();
-  const { financing, property } = inputs;
+  const financing = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.financing));
+  const property = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.property));
+  const updateActiveInputs = useAppStore((s) => s.updateActiveInputs);
 
   const loanAmount = useMemo(() => {
     return property.purchasePrice * (financing.lvr / 100);
@@ -30,7 +32,7 @@ export function FinancingInputs() {
           <NumberField
             label="Loan-to-Value Ratio (LVR)"
             value={financing.lvr}
-            onChange={(value) => setInputs({ financing: { ...financing, lvr: value } })}
+            onChange={(value) => updateActiveInputs({ financing: { ...financing!, lvr: value } })}
             suffix="%"
             min={0}
             max={100}
@@ -46,12 +48,12 @@ export function FinancingInputs() {
           label="LVR Base"
           options={LVR_BASE_OPTIONS}
           value={financing.lvrBase}
-          onChange={(value) => setInputs({ financing: { ...financing, lvrBase: value as "net-grv" | "net-project-costs" } })}
+          onChange={(value) => updateActiveInputs({ financing: { ...financing!, lvrBase: value as "net-grv" | "net-project-costs" } })}
         />
         <NumberField
           label="Interest Rate"
           value={financing.interestRate}
-          onChange={(value) => setInputs({ financing: { ...financing, interestRate: value } })}
+          onChange={(value) => updateActiveInputs({ financing: { ...financing!, interestRate: value } })}
           suffix="%"
           min={0}
           max={30}
@@ -60,7 +62,7 @@ export function FinancingInputs() {
         <NumberField
           label="Loan Term"
           value={financing.loanTermMonths}
-          onChange={(value) => setInputs({ financing: { ...financing, loanTermMonths: value } })}
+          onChange={(value) => updateActiveInputs({ financing: { ...financing!, loanTermMonths: value } })}
           suffix="months"
           min={1}
           max={360}
@@ -69,7 +71,7 @@ export function FinancingInputs() {
           <NumberField
             label="Establishment Fee"
             value={financing.establishmentFeePercent}
-            onChange={(value) => setInputs({ financing: { ...financing, establishmentFeePercent: value } })}
+            onChange={(value) => updateActiveInputs({ financing: { ...financing!, establishmentFeePercent: value } })}
             suffix="%"
             min={0}
             max={10}
@@ -85,7 +87,7 @@ export function FinancingInputs() {
           <NumberField
             label="Broker Fee"
             value={financing.brokerFeePercent}
-            onChange={(value) => setInputs({ financing: { ...financing, brokerFeePercent: value } })}
+            onChange={(value) => updateActiveInputs({ financing: { ...financing!, brokerFeePercent: value } })}
             suffix="%"
             min={0}
             max={10}
@@ -100,14 +102,14 @@ export function FinancingInputs() {
         <NumberField
           label="Settlement Fee"
           value={financing.settlementFee}
-          onChange={(value) => setInputs({ financing: { ...financing, settlementFee: value } })}
+          onChange={(value) => updateActiveInputs({ financing: { ...financing!, settlementFee: value } })}
           prefix="$"
           min={0}
         />
         <NumberField
           label="Deferred Fee (months interest)"
           value={financing.deferredFeeMonths}
-          onChange={(value) => setInputs({ financing: { ...financing, deferredFeeMonths: value } })}
+          onChange={(value) => updateActiveInputs({ financing: { ...financing!, deferredFeeMonths: value } })}
           suffix="months"
           min={0}
           max={12}
@@ -120,7 +122,7 @@ export function FinancingInputs() {
             <NumberField
               label="Second LVR"
               value={financing.secondLvr ?? 0}
-              onChange={(value) => setInputs({ financing: { ...financing, secondLvr: value > 0 ? value : undefined } })}
+              onChange={(value) => updateActiveInputs({ financing: { ...financing!, secondLvr: value > 0 ? value : undefined } })}
               suffix="%"
               min={0}
               max={100}
@@ -135,12 +137,12 @@ export function FinancingInputs() {
             label="Second LVR Base"
             options={LVR_BASE_OPTIONS}
             value={financing.secondLvrBase ?? financing.lvrBase}
-            onChange={(value) => setInputs({ financing: { ...financing, secondLvrBase: value as "net-grv" | "net-project-costs" } })}
+            onChange={(value) => updateActiveInputs({ financing: { ...financing!, secondLvrBase: value as "net-grv" | "net-project-costs" } })}
           />
           <NumberField
             label="Second Interest Rate"
             value={financing.secondInterestRate ?? 0}
-            onChange={(value) => setInputs({ financing: { ...financing, secondInterestRate: value > 0 ? value : undefined } })}
+            onChange={(value) => updateActiveInputs({ financing: { ...financing!, secondInterestRate: value > 0 ? value : undefined } })}
             suffix="%"
             min={0}
             max={50}

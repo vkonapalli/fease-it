@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Button } from "~/components/ui/Button";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { useInputSlice } from "~/stores/feasibilityStore";
 import { Plus, Trash2 } from "lucide-react";
 
 const SPREAD_TYPE_OPTIONS = [
@@ -21,37 +21,34 @@ const STACK_CATEGORIES = [
 ];
 
 export function CapitalSpreadInputs() {
-  const { inputs, setInputs } = useFeasibilityStore();
-  const { capitalSpread } = inputs;
+  const [capitalSpread, setCapitalSpread] = useInputSlice("capitalSpread");
 
   const addItem = () => {
-    setInputs({
-      capitalSpread: [
-        ...capitalSpread,
-        {
-          id: crypto.randomUUID(),
-          description: "New Spread Item",
-          amount: 0,
-          isPercentage: false,
-          date: "",
-          type: "Deposit",
-        },
-      ],
-    });
+    setCapitalSpread([
+      ...capitalSpread,
+      {
+        id: crypto.randomUUID(),
+        description: "New Spread Item",
+        amount: 0,
+        isPercentage: false,
+        date: "",
+        type: "Deposit",
+      },
+    ]);
   };
 
   const updateItem = (id: string, updates: Partial<(typeof capitalSpread)[0]>) => {
-    setInputs({
-      capitalSpread: capitalSpread.map((item) =>
+    setCapitalSpread(
+      capitalSpread.map((item) =>
         item.id === id ? { ...item, ...updates } : item
-      ),
-    });
+      )
+    );
   };
 
   const removeItem = (id: string) => {
-    setInputs({
-      capitalSpread: capitalSpread.filter((item) => item.id !== id),
-    });
+    setCapitalSpread(
+      capitalSpread.filter((item) => item.id !== id)
+    );
   };
 
   return (

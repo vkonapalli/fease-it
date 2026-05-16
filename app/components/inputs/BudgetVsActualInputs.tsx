@@ -1,13 +1,12 @@
 import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Button } from "~/components/ui/Button";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { useInputSlice } from "~/stores/feasibilityStore";
 import { Plus, Trash2 } from "lucide-react";
 import { formatCurrency } from "~/lib/utils";
 
 export function BudgetVsActualInputs() {
-  const { inputs, setInputs } = useFeasibilityStore();
-  const { budgetVsActual } = inputs;
+  const [budgetVsActual, setBudgetVsActual] = useInputSlice("budgetVsActual");
 
   const updateItem = (id: string, updates: Partial<typeof budgetVsActual.items[0]>) => {
     const newItems = budgetVsActual.items.map((item) =>
@@ -15,13 +14,11 @@ export function BudgetVsActualInputs() {
     );
     const totalBudget = newItems.reduce((sum, i) => sum + i.budget, 0);
     const totalActual = newItems.reduce((sum, i) => sum + i.actual, 0);
-    setInputs({
-      budgetVsActual: {
-        items: newItems,
-        totalBudget,
-        totalActual,
-        totalVariance: totalActual - totalBudget,
-      },
+    setBudgetVsActual({
+      items: newItems,
+      totalBudget,
+      totalActual,
+      totalVariance: totalActual - totalBudget,
     });
   };
 
@@ -32,13 +29,11 @@ export function BudgetVsActualInputs() {
     ];
     const totalBudget = newItems.reduce((sum, i) => sum + i.budget, 0);
     const totalActual = newItems.reduce((sum, i) => sum + i.actual, 0);
-    setInputs({
-      budgetVsActual: {
-        items: newItems,
-        totalBudget,
-        totalActual,
-        totalVariance: totalActual - totalBudget,
-      },
+    setBudgetVsActual({
+      items: newItems,
+      totalBudget,
+      totalActual,
+      totalVariance: totalActual - totalBudget,
     });
   };
 
@@ -46,13 +41,11 @@ export function BudgetVsActualInputs() {
     const newItems = budgetVsActual.items.filter((i) => i.id !== id);
     const totalBudget = newItems.reduce((sum, i) => sum + i.budget, 0);
     const totalActual = newItems.reduce((sum, i) => sum + i.actual, 0);
-    setInputs({
-      budgetVsActual: {
-        items: newItems,
-        totalBudget,
-        totalActual,
-        totalVariance: totalActual - totalBudget,
-      },
+    setBudgetVsActual({
+      items: newItems,
+      totalBudget,
+      totalActual,
+      totalVariance: totalActual - totalBudget,
     });
   };
 

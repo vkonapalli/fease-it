@@ -1,46 +1,36 @@
 import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Button } from "~/components/ui/Button";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { useInputSlice } from "~/stores/feasibilityStore";
 import { Plus, Trash2 } from "lucide-react";
 
 export function OperatingInputs() {
-  const { inputs, setInputs } = useFeasibilityStore();
-  const { operating } = inputs;
+  const [operating, setOperating] = useInputSlice("operating");
 
   const updateCost = (id: string, updates: Partial<typeof operating.costs[0]>) => {
-    setInputs({
-      operating: {
-        ...operating,
-        costs: operating.costs.map((c) => (c.id === id ? { ...c, ...updates } : c)),
-      },
+    setOperating({
+      costs: operating.costs.map((c) => (c.id === id ? { ...c, ...updates } : c)),
     });
   };
 
   const addCost = () => {
-    setInputs({
-      operating: {
-        ...operating,
-        costs: [
-          ...operating.costs,
-          {
-            id: crypto.randomUUID(),
-            name: "New Operating Cost",
-            annualAmount: 0,
-            isPercentageOfRent: false,
-            escalationRate: 0,
-          },
-        ],
-      },
+    setOperating({
+      costs: [
+        ...operating.costs,
+        {
+          id: crypto.randomUUID(),
+          name: "New Operating Cost",
+          annualAmount: 0,
+          isPercentageOfRent: false,
+          escalationRate: 0,
+        },
+      ],
     });
   };
 
   const removeCost = (id: string) => {
-    setInputs({
-      operating: {
-        ...operating,
-        costs: operating.costs.filter((c) => c.id !== id),
-      },
+    setOperating({
+      costs: operating.costs.filter((c) => c.id !== id),
     });
   };
 
@@ -50,7 +40,7 @@ export function OperatingInputs() {
         <NumberField
           label="Hold Period (Years)"
           value={operating.holdPeriodYears}
-          onChange={(value) => setInputs({ operating: { ...operating, holdPeriodYears: value } })}
+          onChange={(value) => setOperating({ holdPeriodYears: value })}
           suffix="years"
           min={1}
           max={50}

@@ -1,7 +1,7 @@
 import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Toggle } from "~/components/ui/Toggle";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { useInputSlice } from "~/stores/feasibilityStore";
 import type { SDAUnitConfig } from "~/types";
 
 const SDA_SCENARIO_OPTIONS: { label: string; value: SDAUnitConfig["sdaScenario"] }[] = [
@@ -18,11 +18,10 @@ const SPLIT_OPTIONS: { label: string; value: SDAUnitConfig["excessRevenueSplit"]
 ];
 
 export function SDAInputs() {
-  const { inputs, setInputs } = useFeasibilityStore();
-  const { sda } = inputs;
+  const [sda, setSda] = useInputSlice("sda");
 
   const updateSDA = (updates: Partial<SDAUnitConfig>) => {
-    setInputs({ sda: { ...sda, ...updates } });
+    setSda({ ...updates });
   };
 
   return (

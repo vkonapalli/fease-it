@@ -3,11 +3,14 @@ import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Toggle } from "~/components/ui/Toggle";
 import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { useAppStore } from "~/stores/appStore";
+import { useShallow } from "zustand/react/shallow";
 
 export function CapitalStackInputs() {
-  const { inputs, setInputs } = useFeasibilityStore();
-  const { capitalStack, financing, property } = inputs;
+  const capitalStack = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.capitalStack));
+  const financing = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.financing));
+  const property = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.property));
+  const updateActiveInputs = useAppStore((s) => s.updateActiveInputs);
 
   const totalProjectCost = useMemo(() => {
     // Approximate total project cost for % calculations in inputs
@@ -26,7 +29,7 @@ export function CapitalStackInputs() {
   }, [property.purchasePrice, financing.secondLvr]);
 
   const updateStack = (updates: Partial<typeof capitalStack>) => {
-    setInputs({ capitalStack: { ...capitalStack, ...updates } });
+    updateActiveInputs({ capitalStack: { ...capitalStack!, ...updates } });
   };
 
   return (

@@ -2,7 +2,7 @@ import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Button } from "~/components/ui/Button";
 import { Toggle } from "~/components/ui/Toggle";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { useInputSlice } from "~/stores/feasibilityStore";
 import { Plus, Trash2 } from "lucide-react";
 import type { CashflowFrequency } from "~/types";
 
@@ -13,58 +13,45 @@ const FREQ_OPTIONS: { label: string; value: CashflowFrequency }[] = [
 ];
 
 export function CashflowInputs() {
-  const { inputs, setInputs } = useFeasibilityStore();
-  const { cashflow } = inputs;
+  const [cashflow, setCashflow] = useInputSlice("cashflow");
 
   const updatePhase = (id: string, updates: Partial<typeof cashflow.phases[0]>) => {
-    setInputs({
-      cashflow: {
-        ...cashflow,
-        phases: cashflow.phases.map((p) => (p.id === id ? { ...p, ...updates } : p)),
-      },
+    setCashflow({
+      phases: cashflow.phases.map((p) => (p.id === id ? { ...p, ...updates } : p)),
     });
   };
 
   const addPhase = () => {
-    setInputs({
-      cashflow: {
-        ...cashflow,
-        phases: [
-          ...cashflow.phases,
-          {
-            id: crypto.randomUUID(),
-            name: `Phase ${cashflow.phases.length + 1}`,
-            months: 1,
-            costs: [],
-            income: [],
-          },
-        ],
-      },
+    setCashflow({
+      phases: [
+        ...cashflow.phases,
+        {
+          id: crypto.randomUUID(),
+          name: `Phase ${cashflow.phases.length + 1}`,
+          months: 1,
+          costs: [],
+          income: [],
+        },
+      ],
     });
   };
 
   const removePhase = (id: string) => {
-    setInputs({
-      cashflow: {
-        ...cashflow,
-        phases: cashflow.phases.filter((p) => p.id !== id),
-      },
+    setCashflow({
+      phases: cashflow.phases.filter((p) => p.id !== id),
     });
   };
 
   const addLineItem = (phaseId: string, type: "costs" | "income") => {
-    setInputs({
-      cashflow: {
-        ...cashflow,
-        phases: cashflow.phases.map((p) =>
-          p.id === phaseId
-            ? {
-                ...p,
-                [type]: [...p[type], { name: "New Item", amount: 0, frequency: "once" as const }],
-              }
-            : p
-        ),
-      },
+    setCashflow({
+      phases: cashflow.phases.map((p) =>
+        p.id === phaseId
+          ? {
+              ...p,
+              [type]: [...p[type], { name: "New Item", amount: 0, frequency: "once" as const }],
+            }
+          : p
+      ),
     });
   };
 
@@ -74,29 +61,23 @@ export function CashflowInputs() {
     index: number,
     updates: Partial<{ name: string; amount: number; frequency: "once" | "monthly" }>
   ) => {
-    setInputs({
-      cashflow: {
-        ...cashflow,
-        phases: cashflow.phases.map((p) =>
-          p.id === phaseId
-            ? {
-                ...p,
-                [type]: p[type].map((item, i) => (i === index ? { ...item, ...updates } : item)),
-              }
-            : p
-        ),
-      },
+    setCashflow({
+      phases: cashflow.phases.map((p) =>
+        p.id === phaseId
+          ? {
+              ...p,
+              [type]: p[type].map((item, i) => (i === index ? { ...item, ...updates } : item)),
+            }
+          : p
+      ),
     });
   };
 
   const removeLineItem = (phaseId: string, type: "costs" | "income", index: number) => {
-    setInputs({
-      cashflow: {
-        ...cashflow,
-        phases: cashflow.phases.map((p) =>
-          p.id === phaseId ? { ...p, [type]: p[type].filter((_, i) => i !== index) } : p
-        ),
-      },
+    setCashflow({
+      phases: cashflow.phases.map((p) =>
+        p.id === phaseId ? { ...p, [type]: p[type].filter((_, i) => i !== index) } : p
+      ),
     });
   };
 
@@ -108,7 +89,7 @@ export function CashflowInputs() {
           options={FREQ_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
           value={cashflow.frequency}
           onChange={(value) =>
-            setInputs({ cashflow: { ...cashflow, frequency: value as CashflowFrequency } })
+            setCashflow({ frequency: value as CashflowFrequency })
           }
         />
 
@@ -117,7 +98,7 @@ export function CashflowInputs() {
           <input
             type="date"
             value={cashflow.startDate}
-            onChange={(e) => setInputs({ cashflow: { ...cashflow, startDate: e.target.value } })}
+            onChange={(e) => setCashflow({ startDate: e.target.value })}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
         </div>

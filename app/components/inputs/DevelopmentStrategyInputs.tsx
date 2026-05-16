@@ -2,7 +2,7 @@ import { Collapsible } from "~/components/ui/Collapsible";
 import { Toggle } from "~/components/ui/Toggle";
 import { NumberField } from "~/components/ui/NumberField";
 import { Button } from "~/components/ui/Button";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { useInputSlice } from "~/stores/feasibilityStore";
 import { Plus, Trash2 } from "lucide-react";
 
 const STRATEGY_OPTIONS = [
@@ -20,16 +20,12 @@ const PRICING_OPTIONS = [
 ];
 
 export function DevelopmentStrategyInputs() {
-  const { inputs, setInputs } = useFeasibilityStore();
-  const { development } = inputs;
+  const [development, setDevelopment] = useInputSlice("development");
   const strategy = development.strategy;
 
   const updateStrategy = (updates: Partial<typeof strategy>) => {
-    setInputs({
-      development: {
-        ...development,
-        strategy: { ...strategy, ...updates },
-      },
+    setDevelopment({
+      strategy: { ...strategy, ...updates },
     });
   };
 

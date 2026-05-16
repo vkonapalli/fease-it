@@ -1,123 +1,98 @@
 import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Button } from "~/components/ui/Button";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { useInputSlice } from "~/stores/feasibilityStore";
 import { Plus, Trash2 } from "lucide-react";
 
 export function JVInputs() {
-  const { inputs, setInputs } = useFeasibilityStore();
-  const { jv } = inputs;
+  const [jv, setJv] = useInputSlice("jv");
 
   const updateRound = (id: string, updates: Partial<typeof jv.rounds[0]>) => {
-    setInputs({
-      jv: {
-        ...jv,
-        rounds: jv.rounds.map((r) => (r.id === id ? { ...r, ...updates } : r)),
-      },
+    setJv({
+      rounds: jv.rounds.map((r) => (r.id === id ? { ...r, ...updates } : r)),
     });
   };
 
   const updateInvestor = (roundId: string, investorId: string, amount: number) => {
-    setInputs({
-      jv: {
-        ...jv,
-        rounds: jv.rounds.map((r) =>
-          r.id === roundId
-            ? {
-                ...r,
-                investors: r.investors.map((i) =>
-                  i.id === investorId ? { ...i, amount } : i
-                ),
-                totalRaised: r.investors.reduce(
-                  (sum, i) => sum + (i.id === investorId ? amount : i.amount),
-                  0
-                ),
-              }
-            : r
-        ),
-      },
+    setJv({
+      rounds: jv.rounds.map((r) =>
+        r.id === roundId
+          ? {
+              ...r,
+              investors: r.investors.map((i) =>
+                i.id === investorId ? { ...i, amount } : i
+              ),
+              totalRaised: r.investors.reduce(
+                (sum, i) => sum + (i.id === investorId ? amount : i.amount),
+                0
+              ),
+            }
+          : r
+      ),
     });
   };
 
   const addRound = () => {
-    setInputs({
-      jv: {
-        ...jv,
-        rounds: [
-          ...jv.rounds,
-          {
-            id: crypto.randomUUID(),
-            name: `Round ${jv.rounds.length + 1}`,
-            totalRaised: 0,
-            investors: [],
-          },
-        ],
-      },
+    setJv({
+      rounds: [
+        ...jv.rounds,
+        {
+          id: crypto.randomUUID(),
+          name: `Round ${jv.rounds.length + 1}`,
+          totalRaised: 0,
+          investors: [],
+        },
+      ],
     });
   };
 
   const addInvestor = (roundId: string) => {
-    setInputs({
-      jv: {
-        ...jv,
-        rounds: jv.rounds.map((r) =>
-          r.id === roundId
-            ? {
-                ...r,
-                investors: [
-                  ...r.investors,
-                  { id: crypto.randomUUID(), name: "New Investor", amount: 0 },
-                ],
-              }
-            : r
-        ),
-      },
+    setJv({
+      rounds: jv.rounds.map((r) =>
+        r.id === roundId
+          ? {
+              ...r,
+              investors: [
+                ...r.investors,
+                { id: crypto.randomUUID(), name: "New Investor", amount: 0 },
+              ],
+            }
+          : r
+      ),
     });
   };
 
   const removeInvestor = (roundId: string, investorId: string) => {
-    setInputs({
-      jv: {
-        ...jv,
-        rounds: jv.rounds.map((r) =>
-          r.id === roundId
-            ? {
-                ...r,
-                investors: r.investors.filter((i) => i.id !== investorId),
-              }
-            : r
-        ),
-      },
+    setJv({
+      rounds: jv.rounds.map((r) =>
+        r.id === roundId
+          ? {
+              ...r,
+              investors: r.investors.filter((i) => i.id !== investorId),
+            }
+          : r
+      ),
     });
   };
 
   const updateMoneyPartner = (id: string, updates: Partial<typeof jv.moneyPartners[0]>) => {
-    setInputs({
-      jv: {
-        ...jv,
-        moneyPartners: jv.moneyPartners.map((mp) => (mp.id === id ? { ...mp, ...updates } : mp)),
-      },
+    setJv({
+      moneyPartners: jv.moneyPartners.map((mp) => (mp.id === id ? { ...mp, ...updates } : mp)),
     });
   };
 
   const addMoneyPartner = () => {
-    setInputs({
-      jv: {
-        ...jv,
-        moneyPartners: [
-          ...jv.moneyPartners,
-          { id: crypto.randomUUID(), name: "New Partner", amount: 0, interestRate: 15, monthsLoaned: 12 },
-        ],
-      },
+    setJv({
+      moneyPartners: [
+        ...jv.moneyPartners,
+        { id: crypto.randomUUID(), name: "New Partner", amount: 0, interestRate: 15, monthsLoaned: 12 },
+      ],
     });
   };
 
   const removeMoneyPartner = (id: string) => {
-    setInputs({
-      jv: {
-        ...jv,
-        moneyPartners: jv.moneyPartners.filter((mp) => mp.id !== id),
-      },
+    setJv({
+      moneyPartners: jv.moneyPartners.filter((mp) => mp.id !== id),
     });
   };
 
@@ -127,7 +102,7 @@ export function JVInputs() {
         <NumberField
           label="Developer Equity"
           value={jv.developerEquity}
-          onChange={(value) => setInputs({ jv: { ...jv, developerEquity: value } })}
+          onChange={(value) => setJv({ developerEquity: value })}
           prefix="$"
           min={0}
         />
@@ -135,7 +110,7 @@ export function JVInputs() {
           <NumberField
             label="Investor Profit Share"
             value={jv.investorProfitSharePercent}
-            onChange={(value) => setInputs({ jv: { ...jv, investorProfitSharePercent: value } })}
+            onChange={(value) => setJv({ investorProfitSharePercent: value })}
             suffix="%"
             min={0}
             max={100}
@@ -143,7 +118,7 @@ export function JVInputs() {
           <NumberField
             label="Developer Profit Share"
             value={jv.developerProfitSharePercent}
-            onChange={(value) => setInputs({ jv: { ...jv, developerProfitSharePercent: value } })}
+            onChange={(value) => setJv({ developerProfitSharePercent: value })}
             suffix="%"
             min={0}
             max={100}
@@ -167,20 +142,17 @@ export function JVInputs() {
                     type="text"
                     value={inv.name}
                     onChange={(e) =>
-                      setInputs({
-                        jv: {
-                          ...jv,
-                          rounds: jv.rounds.map((r) =>
-                            r.id === round.id
-                              ? {
-                                  ...r,
-                                  investors: r.investors.map((i) =>
-                                    i.id === inv.id ? { ...i, name: e.target.value } : i
-                                  ),
-                                }
-                              : r
-                          ),
-                        },
+                      setJv({
+                        rounds: jv.rounds.map((r) =>
+                          r.id === round.id
+                            ? {
+                                ...r,
+                                investors: r.investors.map((i) =>
+                                  i.id === inv.id ? { ...i, name: e.target.value } : i
+                                ),
+                              }
+                            : r
+                        ),
                       })
                     }
                     className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm"

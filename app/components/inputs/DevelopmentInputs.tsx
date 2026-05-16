@@ -5,13 +5,12 @@ import { Button } from "~/components/ui/Button";
 import { Toggle } from "~/components/ui/Toggle";
 import { GSTToggle } from "~/components/ui/GSTToggle";
 import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { useInputSlice } from "~/stores/feasibilityStore";
 import { calculateRevenue } from "~/lib/calculations/profit";
 import { Plus, Trash2 } from "lucide-react";
 
 export function DevelopmentInputs() {
-  const { inputs, setInputs } = useFeasibilityStore();
-  const { development } = inputs;
+  const [development, setDevelopment] = useInputSlice("development");
 
   const { totalRevenue } = useMemo(() => calculateRevenue(development), [development]);
 
@@ -35,97 +34,76 @@ export function DevelopmentInputs() {
 
   // --- Lot management ---
   const updateLot = (id: number, updates: Partial<typeof development.lots[0]>) => {
-    setInputs({
-      development: {
-        ...development,
-        lots: development.lots.map((l) => (l.id === id ? { ...l, ...updates } : l)),
-      },
+    setDevelopment({
+      lots: development.lots.map((l) => (l.id === id ? { ...l, ...updates } : l)),
     });
   };
 
   const addLot = () => {
     const newId = Math.max(...development.lots.map((l) => l.id), 0) + 1;
-    setInputs({
-      development: {
-        ...development,
-        numDwellings: development.numDwellings + 1,
-        lots: [
-          ...development.lots,
-          {
-            id: newId,
-            name: `Block ${newId}`,
-            salePrice: 1775000,
-            buildAreaSqm: 0,
-            landAreaSqm: 647.5,
-            isHeld: false,
-            hasConstruction: false,
-          },
-        ],
-      },
+    setDevelopment({
+      numDwellings: development.numDwellings + 1,
+      lots: [
+        ...development.lots,
+        {
+          id: newId,
+          name: `Block ${newId}`,
+          salePrice: 1775000,
+          buildAreaSqm: 0,
+          landAreaSqm: 647.5,
+          isHeld: false,
+          hasConstruction: false,
+        },
+      ],
     });
   };
 
   const removeLot = (id: number) => {
     if (development.lots.length <= 1) return;
-    setInputs({
-      development: {
-        ...development,
-        numDwellings: development.numDwellings - 1,
-        lots: development.lots.filter((l) => l.id !== id),
-      },
+    setDevelopment({
+      numDwellings: development.numDwellings - 1,
+      lots: development.lots.filter((l) => l.id !== id),
     });
   };
 
   // --- Global costs ---
   const updateGlobalCost = (id: string, updates: Partial<typeof development.globalCosts[0]>) => {
-    setInputs({
-      development: {
-        ...development,
-        globalCosts: development.globalCosts.map((c) =>
-          c.id === id ? { ...c, ...updates } : c
-        ),
-      },
+    setDevelopment({
+      globalCosts: development.globalCosts.map((c) =>
+        c.id === id ? { ...c, ...updates } : c
+      ),
     });
   };
 
   const addGlobalCost = () => {
-    setInputs({
-      development: {
-        ...development,
-        globalCosts: [
-          ...development.globalCosts,
-          {
-            id: crypto.randomUUID(),
-            name: "New Cost",
-            amount: 0,
-            isPercentage: false,
-            applyPerLot: false,
-            gstTreatment: "inclusive",
-          },
-        ],
-      },
+    setDevelopment({
+      globalCosts: [
+        ...development.globalCosts,
+        {
+          id: crypto.randomUUID(),
+          name: "New Cost",
+          amount: 0,
+          isPercentage: false,
+          applyPerLot: false,
+          gstTreatment: "inclusive",
+        },
+      ],
     });
   };
 
   const removeGlobalCost = (id: string) => {
-    setInputs({
-      development: {
-        ...development,
-        globalCosts: development.globalCosts.filter((c) => c.id !== id),
-      },
+    setDevelopment({
+      globalCosts: development.globalCosts.filter((c) => c.id !== id),
     });
   };
 
   const handleGlobalGSTToggle = (value: "free" | "inclusive" | "exclusive") => {
     if (value === "free") return;
-    setInputs({
-      development: {
-        ...development,
-        gstGlobalTreatment: value,
-        globalCosts: development.globalCosts.map((c) =>
-          c.gstTreatment === "free" ? c : { ...c, gstTreatment: value }
-        ),
-      },
+    setDevelopment({
+      gstGlobalTreatment: value,
+      globalCosts: development.globalCosts.map((c) =>
+        c.gstTreatment === "free" ? c : { ...c, gstTreatment: value }
+      ),
     });
   };
 
@@ -199,7 +177,7 @@ export function DevelopmentInputs() {
         <NumberField
           label="Construction Cost per sqm"
           value={development.constructionCostPerSqm}
-          onChange={(value) => setInputs({ development: { ...development, constructionCostPerSqm: value } })}
+          onChange={(value) => setDevelopment({ constructionCostPerSqm: value })}
           prefix="$"
           min={0}
         />
@@ -287,7 +265,7 @@ export function DevelopmentInputs() {
           <NumberField
             label="Contingency"
             value={development.contingencyPercent}
-            onChange={(value) => setInputs({ development: { ...development, contingencyPercent: value } })}
+            onChange={(value) => setDevelopment({ contingencyPercent: value })}
             suffix="%"
             min={0}
             max={50}

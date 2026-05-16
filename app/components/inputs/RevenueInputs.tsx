@@ -3,7 +3,8 @@ import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Toggle } from "~/components/ui/Toggle";
 import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { useAppStore } from "~/stores/appStore";
+import { useShallow } from "zustand/react/shallow";
 import type { GSTTreatment } from "~/types";
 
 const GST_OPTIONS: { label: string; value: GSTTreatment }[] = [
@@ -14,8 +15,10 @@ const GST_OPTIONS: { label: string; value: GSTTreatment }[] = [
 ];
 
 export function RevenueInputs() {
-  const { inputs, setInputs } = useFeasibilityStore();
-  const { revenue, property, development } = inputs;
+  const revenue = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.revenue));
+  const property = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.property));
+  const development = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.development));
+  const updateActiveInputs = useAppStore((s) => s.updateActiveInputs);
 
   const totalRevenue = useMemo(() => {
     switch (development.strategy.pricingModel) {
@@ -50,9 +53,9 @@ export function RevenueInputs() {
             ]}
             value={revenue.applyMarginScheme}
             onChange={(value) =>
-              setInputs({
+              updateActiveInputs({
                 revenue: {
-                  ...revenue,
+                  ...revenue!,
                   applyMarginScheme: value as boolean,
                 },
               })
@@ -65,10 +68,10 @@ export function RevenueInputs() {
             label="Cost Base per Lot (for Margin Scheme)"
             value={revenue.gst.costBasePerLot ?? property.purchasePrice / development.numDwellings}
             onChange={(value) =>
-              setInputs({
+              updateActiveInputs({
                 revenue: {
-                  ...revenue,
-                  gst: { ...revenue.gst, costBasePerLot: value },
+                  ...revenue!,
+                  gst: { ...revenue!.gst, costBasePerLot: value },
                 },
               })
             }
@@ -83,10 +86,10 @@ export function RevenueInputs() {
             options={GST_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
             value={revenue.gst.treatment}
             onChange={(value) =>
-              setInputs({
+              updateActiveInputs({
                 revenue: {
-                  ...revenue,
-                  gst: { ...revenue.gst, treatment: value as GSTTreatment },
+                  ...revenue!,
+                  gst: { ...revenue!.gst, treatment: value as GSTTreatment },
                 },
               })
             }
@@ -96,7 +99,7 @@ export function RevenueInputs() {
         <NumberField
           label="Capital Growth Rate (p.a.)"
           value={revenue.capitalGrowthRate * 100}
-          onChange={(value) => setInputs({ revenue: { ...revenue, capitalGrowthRate: value / 100 } })}
+          onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, capitalGrowthRate: value / 100 } })}
           suffix="%"
           min={0}
           max={50}
@@ -113,9 +116,9 @@ export function RevenueInputs() {
             ]}
             value={revenue.salesCommissionType}
             onChange={(value) =>
-              setInputs({
+              updateActiveInputs({
                 revenue: {
-                  ...revenue,
+                  ...revenue!,
                   salesCommissionType: value as "percentage" | "flat",
                 },
               })
@@ -126,7 +129,7 @@ export function RevenueInputs() {
               <NumberField
                 label="Commission %"
                 value={revenue.salesCommissionPercent}
-                onChange={(value) => setInputs({ revenue: { ...revenue, salesCommissionPercent: value } })}
+                onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, salesCommissionPercent: value } })}
                 suffix="%"
                 min={0}
                 max={100}
@@ -143,7 +146,7 @@ export function RevenueInputs() {
               <NumberField
                 label="Flat Fee"
                 value={revenue.salesCommissionFlat}
-                onChange={(value) => setInputs({ revenue: { ...revenue, salesCommissionFlat: value } })}
+                onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, salesCommissionFlat: value } })}
                 prefix="$"
                 min={0}
               />
@@ -156,20 +159,20 @@ export function RevenueInputs() {
           <NumberField
             label="Rent per Unit / Week"
             value={revenue.rentalIncomePerUnitPerWeek}
-            onChange={(value) => setInputs({ revenue: { ...revenue, rentalIncomePerUnitPerWeek: value } })}
+            onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, rentalIncomePerUnitPerWeek: value } })}
             prefix="$"
             min={0}
           />
           <NumberField
             label="Number of Units for Rent"
             value={revenue.numUnitsForRent}
-            onChange={(value) => setInputs({ revenue: { ...revenue, numUnitsForRent: value } })}
+            onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, numUnitsForRent: value } })}
             min={0}
           />
           <NumberField
             label="Rental Growth Rate"
             value={revenue.rentalGrowthRate * 100}
-            onChange={(value) => setInputs({ revenue: { ...revenue, rentalGrowthRate: value / 100 } })}
+            onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, rentalGrowthRate: value / 100 } })}
             suffix="%"
             min={0}
             max={50}
@@ -178,7 +181,7 @@ export function RevenueInputs() {
           <NumberField
             label="Vacancy Rate"
             value={revenue.vacancyRate * 100}
-            onChange={(value) => setInputs({ revenue: { ...revenue, vacancyRate: value / 100 } })}
+            onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, vacancyRate: value / 100 } })}
             suffix="%"
             min={0}
             max={100}
@@ -187,7 +190,7 @@ export function RevenueInputs() {
           <NumberField
             label="Rental Shading (Bank %)"
             value={revenue.rentalShadingPercent}
-            onChange={(value) => setInputs({ revenue: { ...revenue, rentalShadingPercent: value } })}
+            onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, rentalShadingPercent: value } })}
             suffix="%"
             min={0}
             max={100}

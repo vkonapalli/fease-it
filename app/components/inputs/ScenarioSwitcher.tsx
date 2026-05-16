@@ -1,5 +1,5 @@
 import { Toggle } from "~/components/ui/Toggle";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { useScenarioInput } from "~/stores/feasibilityStore";
 import type { ProjectScenario } from "~/types";
 
 const SCENARIO_OPTIONS: { label: string; value: ProjectScenario }[] = [
@@ -12,15 +12,15 @@ const SCENARIO_OPTIONS: { label: string; value: ProjectScenario }[] = [
 ];
 
 export function ScenarioSwitcher() {
-  const { inputs, setInputs } = useFeasibilityStore();
+  const [scenario, setScenario] = useScenarioInput();
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4">
       <Toggle
         label="Project Scenario"
         options={SCENARIO_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
-        value={inputs.scenario}
-        onChange={(value) => setInputs({ scenario: value as ProjectScenario })}
+        value={scenario}
+        onChange={(value) => setScenario(value as ProjectScenario)}
       />
     </div>
   );

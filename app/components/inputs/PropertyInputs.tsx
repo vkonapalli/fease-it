@@ -6,26 +6,28 @@ import { Button } from "~/components/ui/Button";
 import { GSTToggle } from "~/components/ui/GSTToggle";
 import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
 import { AddressAutocomplete } from "~/components/inputs/AddressAutocomplete";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { useAppStore } from "~/stores/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { calculateStampDuty, AUSTRALIAN_STATES, formatCurrency } from "~/lib/calculations/stampDuty";
 import { calculateLandTax } from "~/lib/constants/landTax";
 import { Plus, Trash2 } from "lucide-react";
 
 export function PropertyInputs() {
-  const { inputs, setInputs } = useFeasibilityStore();
-  const { property } = inputs;
+  const property = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.property));
+  const development = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.development));
+  const updateActiveInputs = useAppStore((s) => s.updateActiveInputs);
 
   const stampDuty = useMemo(
-    () => calculateStampDuty(property.location, property.purchasePrice),
-    [property.location, property.purchasePrice]
+    () => calculateStampDuty(property!.location, property!.purchasePrice),
+    [property!.location, property!.purchasePrice]
   );
 
   const landTaxAnnual = useMemo(() => {
-    if (!property.location || !property.purchasePrice) return 0;
-    return calculateLandTax(property.location, property.purchasePrice, false);
-  }, [property.location, property.purchasePrice]);
+    if (!property!.location || !property!.purchasePrice) return 0;
+    return calculateLandTax(property!.location, property!.purchasePrice, false);
+  }, [property!.location, property!.purchasePrice]);
 
-  const timelineMonths = inputs.development.timeline?.timelineMonths ?? 12;
+  const timelineMonths = development?.timeline?.timelineMonths ?? 12;
   const landTaxTotal = landTaxAnnual * (timelineMonths / 12);
 
   // Filter out any legacy stamp-duty or land-tax line items from the editable list
@@ -35,7 +37,7 @@ export function PropertyInputs() {
   });
 
   const updateCost = (id: string, updates: Partial<{ name: string; amount: number; isPercentage: boolean; gstTreatment: "free" | "inclusive" | "exclusive" }>) => {
-    setInputs({
+    updateActiveInputs({
       property: {
         ...property,
         costs: property.costs.map((c) => (c.id === id ? { ...c, ...updates } : c)),
@@ -44,7 +46,7 @@ export function PropertyInputs() {
   };
 
   const addCost = () => {
-    setInputs({
+    updateActiveInputs({
       property: {
         ...property,
         costs: [
@@ -56,7 +58,7 @@ export function PropertyInputs() {
   };
 
   const removeCost = (id: string) => {
-    setInputs({
+    updateActiveInputs({
       property: {
         ...property,
         costs: property.costs.filter((c) => c.id !== id),
@@ -73,7 +75,7 @@ export function PropertyInputs() {
     postcode: string;
     country: string;
   }) => {
-    setInputs({
+    updateActiveInputs({
       property: {
         ...property,
         address: parsed.formattedAddress,
@@ -101,7 +103,7 @@ export function PropertyInputs() {
               label="Suburb"
               value={property.suburb}
               onChange={(e) =>
-                setInputs({ property: { ...property, suburb: e.target.value } })
+                updateActiveInputs({ property: { ...property, suburb: e.target.value } })
               }
               placeholder="e.g. Frankston South"
             />
@@ -109,7 +111,7 @@ export function PropertyInputs() {
               label="Postcode"
               value={property.postcode}
               onChange={(e) =>
-                setInputs({ property: { ...property, postcode: e.target.value } })
+                updateActiveInputs({ property: { ...property, postcode: e.target.value } })
               }
               placeholder="e.g. 3199"
             />
@@ -121,7 +123,7 @@ export function PropertyInputs() {
             <select
               value={property.location}
               onChange={(e) =>
-                setInputs({ property: { ...property, location: e.target.value } })
+                updateActiveInputs({ property: { ...property, location: e.target.value } })
               }
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             >
@@ -137,14 +139,14 @@ export function PropertyInputs() {
         <NumberField
           label="Purchase Price"
           value={property.purchasePrice}
-          onChange={(value) => setInputs({ property: { ...property, purchasePrice: value } })}
+          onChange={(value) => updateActiveInputs({ property: { ...property, purchasePrice: value } })}
           prefix="$"
           min={0}
         />
         <NumberField
           label="Total Land Area"
           value={property.landArea}
-          onChange={(value) => setInputs({ property: { ...property, landArea: value } })}
+          onChange={(value) => updateActiveInputs({ property: { ...property, landArea: value } })}
           suffix="sqm"
           min={0}
         />

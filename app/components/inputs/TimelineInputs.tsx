@@ -1,14 +1,16 @@
 import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
-import { useFeasibilityStore } from "~/stores/feasibilityStore";
+import { useAppStore } from "~/stores/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { useMemo } from "react";
 import { calculateLandTax } from "~/lib/constants/landTax";
 import { formatCurrency } from "~/lib/calculations/stampDuty";
 
 export function TimelineInputs() {
-  const { inputs, setInputs } = useFeasibilityStore();
-  const { development, property } = inputs;
-  const timeline = development.timeline;
+  const development = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.development));
+  const property = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.property));
+  const updateActiveInputs = useAppStore((s) => s.updateActiveInputs);
+  const timeline = development!.timeline;
 
   // Auto-calculate land tax
   const annualLandTax = useMemo(() => {
@@ -21,9 +23,9 @@ export function TimelineInputs() {
   }, [annualLandTax, timeline.timelineMonths]);
 
   const updateTimeline = (updates: Partial<typeof timeline>) => {
-    setInputs({
+    updateActiveInputs({
       development: {
-        ...development,
+        ...development!,
         timeline: { ...timeline, ...updates },
       },
     });
