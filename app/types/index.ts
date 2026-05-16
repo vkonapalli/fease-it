@@ -305,6 +305,23 @@ export interface CashflowConfig {
   overrides: CashflowRow[];
 }
 
+// --- Template Packs ---
+export interface ScenarioTemplate {
+  id: string;
+  name: string;
+  strategy: ProjectScenario;
+  description: string;
+  inputs: FeasibilityInputs;
+}
+
+export interface TemplatePack {
+  id: string;
+  name: string;
+  description: string;
+  isBuiltIn: boolean;
+  scenarios: ScenarioTemplate[];
+}
+
 // --- Main Input Types ---
 
 export interface FeasibilityInputs {

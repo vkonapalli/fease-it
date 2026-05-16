@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { FeasibilityInputs } from "~/types";
+import type { FeasibilityInputs, TemplatePack } from "~/types";
+import { createBaseInputs } from "~/lib/templates";
 
 export interface Scenario {
   id: string;
@@ -46,184 +47,23 @@ interface AppState {
   getActiveInputs: () => FeasibilityInputs | null;
   updateActiveInputs: (inputs: Partial<FeasibilityInputs>) => void;
 
+  // Template Packs
+  customPacks: TemplatePack[];
+  preferredPackId: string | null;
+  saveCustomPack: (pack: TemplatePack) => void;
+  deleteCustomPack: (id: string) => void;
+  setPreferredPack: (id: string | null) => void;
+
   // Hydration
   _hasHydrated: boolean;
   setHasHydrated: (state: boolean) => void;
-}
-
-function createDefaultInputs(): FeasibilityInputs {
-  return {
-    name: "657A Nepean Hwy",
-    scenario: "sell-all",
-    property: {
-      purchasePrice: 2760000,
-      landArea: 1295,
-      location: "VIC",
-      address: "657A Nepean Highway",
-      suburb: "Frankston South",
-      postcode: "3199",
-      costs: [
-        { id: "buyers-fee", name: "Buyers / Finders Fee", amount: 40000, isPercentage: false, gstTreatment: "inclusive" },
-        { id: "accounting-legals", name: "Accounting & Legals", amount: 15000, isPercentage: false, gstTreatment: "inclusive" },
-        { id: "closing-costs", name: "Closing Costs & Settlement", amount: 3000, isPercentage: false, gstTreatment: "inclusive" },
-        { id: "due-diligence", name: "Due Diligence", amount: 5000, isPercentage: false, gstTreatment: "inclusive" },
-      ],
-    },
-    development: {
-      numDwellings: 2,
-      lots: [
-        { id: 1, name: "Block 44", salePrice: 1775000, buildAreaSqm: 0, landAreaSqm: 647.5, isHeld: false, hasConstruction: false },
-        { id: 2, name: "Block 92", salePrice: 1775000, buildAreaSqm: 0, landAreaSqm: 647.5, isHeld: false, hasConstruction: false },
-      ],
-      globalCosts: [
-        { id: "town-planning", name: "Town Planning", amount: 0.6, isPercentage: true, applyPerLot: false, gstTreatment: "inclusive" },
-        { id: "building-permits", name: "Building Permits", amount: 0.6, isPercentage: true, applyPerLot: false, gstTreatment: "inclusive" },
-        { id: "land-surveying", name: "Land Surveying", amount: 0, isPercentage: false, applyPerLot: false, gstTreatment: "inclusive" },
-        { id: "utilities-water", name: "Utilities — Water", amount: 0, isPercentage: false, applyPerLot: false, gstTreatment: "free" },
-        { id: "utilities-electricity", name: "Utilities — Electricity", amount: 0, isPercentage: false, applyPerLot: false, gstTreatment: "free" },
-        { id: "council-costs", name: "Council Costs", amount: 0, isPercentage: false, applyPerLot: false, gstTreatment: "free" },
-        { id: "holding", name: "Holding Cost", amount: 0.5, isPercentage: true, applyPerLot: false, gstTreatment: "inclusive" },
-        { id: "demo", name: "Demolition", amount: 60000, isPercentage: false, applyPerLot: false, gstTreatment: "inclusive" },
-        { id: "marketing", name: "Marketing & Selling", amount: 1.5, isPercentage: true, applyPerLot: false, gstTreatment: "inclusive" },
-      ],
-      constructionCostPerSqm: 2430,
-      contingencyPercent: 5,
-      timeline: {
-        settlementDate: "",
-        contractDate: "",
-        timelineMonths: 12,
-      },
-      strategy: {
-        strategyType: "sub-division",
-        pricingModel: "average",
-        minLots: null,
-        maxLots: null,
-        averagePricePerLot: 1775000,
-        pricePerSqm: 0,
-        lotSizeGroups: [],
-      },
-      gstGlobalTreatment: "inclusive",
-    },
-    financing: {
-      lvr: 70,
-      interestRate: 6.14,
-      loanTermMonths: 12,
-      establishmentFeePercent: 0.475,
-      brokerFeePercent: 0,
-      settlementFee: 1000,
-      deferredFeeMonths: 0,
-      lvrBase: "net-grv",
-      secondLvrBase: "net-grv",
-    },
-    revenue: {
-      gst: { treatment: "gst-free", costBasePerLot: 1380000 },
-      capitalGrowthRate: 0.05,
-      rentalIncomePerUnitPerWeek: 360,
-      rentalGrowthRate: 0.05,
-      vacancyRate: 0.05,
-      rentalShadingPercent: 90,
-      numUnitsForRent: 10,
-      applyMarginScheme: false,
-      salesCommissionType: "percentage",
-      salesCommissionPercent: 1.5,
-      salesCommissionFlat: 0,
-    },
-    operating: {
-      costs: [
-        { id: "council-rates", name: "Council Rates", annualAmount: 12720, isPercentageOfRent: false, escalationRate: 0.03 },
-        { id: "insurance", name: "Insurance", annualAmount: 6000, isPercentageOfRent: false, escalationRate: 0.05 },
-        { id: "landscaping", name: "Landscaping", annualAmount: 3600, isPercentageOfRent: false, escalationRate: 0 },
-        { id: "repairs", name: "Repairs & Maintenance", annualAmount: 6180, isPercentageOfRent: false, escalationRate: 0.03 },
-        { id: "prop-mgmt", name: "Property Management", annualAmount: 6, isPercentageOfRent: true, escalationRate: 0 },
-        { id: "letting", name: "Letting Fee", annualAmount: 0, isPercentageOfRent: false, escalationRate: 0 },
-        { id: "land-tax", name: "Land Tax", annualAmount: 29000, isPercentageOfRent: false, escalationRate: 0 },
-        { id: "accounting", name: "Accounting", annualAmount: 1000, isPercentageOfRent: false, escalationRate: 0 },
-      ],
-      holdPeriodYears: 7,
-    },
-    jv: {
-      developerEquity: 0,
-      investorProfitSharePercent: 60.35,
-      developerProfitSharePercent: 39.65,
-      rounds: [
-        { id: "round-1", name: "Round 1 Capital Raising", totalRaised: 800000, investors: [
-          { id: "vish", name: "Vish Associates", amount: 600000 },
-          { id: "sharath", name: "Sharath Reddy", amount: 195000 },
-          { id: "arvr", name: "ARVR Holdings", amount: 200000 },
-        ]},
-        { id: "round-2", name: "Round 2 Capital Raising", totalRaised: 200000, investors: [
-          { id: "round2-inv", name: "Round 2 Investors", amount: 200000 },
-        ]},
-      ],
-      moneyPartners: [
-        { id: "ramakanth", name: "Ramakanth", amount: 150000, interestRate: 15, monthsLoaned: 5 },
-      ],
-    },
-    cashflow: {
-      frequency: "monthly",
-      startDate: "2026-01-01",
-      phases: [
-        { id: "acquisition", name: "Acquisition", months: 1, costs: [
-          { name: "Purchase Price", amount: 2760000, frequency: "once" },
-          { name: "Stamp Duty", amount: 179400, frequency: "once" },
-          { name: "Legal & Settlement", amount: 18000, frequency: "once" },
-        ], income: [
-          { name: "Bank Loan", amount: 1932000, frequency: "once" },
-          { name: "Investor Capital", amount: 995000, frequency: "once" },
-        ]},
-        { id: "development", name: "Development", months: 3, costs: [
-          { name: "Demolition", amount: 20000, frequency: "monthly" },
-          { name: "Holding Costs", amount: 5000, frequency: "monthly" },
-        ], income: []},
-        { id: "sales", name: "Sales", months: 3, costs: [
-          { name: "Marketing", amount: 5000, frequency: "monthly" },
-          { name: "Commission", amount: 15000, frequency: "once" },
-        ], income: [
-          { name: "Sale Block 1", amount: 1775000, frequency: "once" },
-          { name: "Sale Block 2", amount: 1775000, frequency: "once" },
-        ]},
-      ],
-      overrides: [],
-    },
-    budgetVsActual: {
-      items: [
-        { id: "purchase", category: "Purchase Price", budget: 2760000, actual: 2760000, variance: 0, variancePercent: 0 },
-        { id: "stamp", category: "Stamp Duty", budget: 165600, actual: 163297.63, variance: -2302.37, variancePercent: -1.39 },
-        { id: "finders", category: "Finders Fee", budget: 40000, actual: 40000, variance: 0, variancePercent: 0 },
-        { id: "legals", category: "Accounting & Legals", budget: 15000, actual: 7179.36, variance: -7820.64, variancePercent: -52.14 },
-        { id: "funding", category: "Funding Cost", budget: 22252, actual: 19454, variance: -2798, variancePercent: -12.57 },
-        { id: "demo", category: "Demo", budget: 80000, actual: 40000, variance: -40000, variancePercent: -50 },
-      ],
-      totalBudget: 0,
-      totalActual: 0,
-      totalVariance: 0,
-    },
-    sda: {
-      units: 4,
-      sdaBasicMonthly: 12180,
-      rrcMonthly: 11858,
-      ooaLeaseMonthly: 25622,
-      sdaScenario: "full",
-      landlordSharePercent: 92,
-      providerFeePercent: 16,
-      landlordGuaranteedAnnual: 140000,
-      excessRevenueSplit: "50-50",
-    },
-    capitalStack: {
-      privateLending: { amount: 0, isPercentageOfCost: false, interestRate: 0 },
-      profitSharing: { amountCommitted: 0, percentOfTotalCapital: 0, percentOfProfit: 0 },
-      developerEquity: { amount: 0, isAutoComputed: true },
-      otherEquity: { amount: 0, isPercentageOfCost: false },
-    },
-    capitalSpread: [],
-  };
 }
 
 function createDefaultScenario(): Scenario {
   return {
     id: crypto.randomUUID(),
     name: "Scenario 1",
-    inputs: createDefaultInputs(),
+    inputs: createBaseInputs(),
     sortOrder: 0,
     synced: false,
     remoteId: null,
@@ -290,7 +130,7 @@ export const useAppStore = create<AppState>()(
           const source = state.scenarios.find((s) => s.id === id);
           if (!source) return state;
 
-          const defaults = createDefaultInputs();
+          const defaults = createBaseInputs();
           const src = source.inputs;
 
           const newInputs: FeasibilityInputs = {
@@ -354,6 +194,32 @@ export const useAppStore = create<AppState>()(
           };
         }),
 
+      // Template Packs
+      customPacks: [],
+      preferredPackId: null,
+
+      saveCustomPack: (pack) =>
+        set((state) => {
+          const existing = state.customPacks.find((p) => p.id === pack.id);
+          if (existing) {
+            return {
+              customPacks: state.customPacks.map((p) =>
+                p.id === pack.id ? pack : p
+              ),
+            };
+          }
+          return { customPacks: [...state.customPacks, pack] };
+        }),
+
+      deleteCustomPack: (id) =>
+        set((state) => ({
+          customPacks: state.customPacks.filter((p) => p.id !== id),
+          preferredPackId:
+            state.preferredPackId === id ? null : state.preferredPackId,
+        })),
+
+      setPreferredPack: (id) => set({ preferredPackId: id }),
+
       // Hydration
       _hasHydrated: false,
       setHasHydrated: (state) => set({ _hasHydrated: state }),
@@ -365,6 +231,8 @@ export const useAppStore = create<AppState>()(
         projectName: state.projectName,
         scenarios: state.scenarios,
         activeScenarioId: state.activeScenarioId,
+        customPacks: state.customPacks,
+        preferredPackId: state.preferredPackId,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

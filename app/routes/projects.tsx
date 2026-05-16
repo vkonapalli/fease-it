@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
-import { Plus, FolderOpen, Trash2, Loader2, LogOut } from "lucide-react";
+import { useNavigate, Link } from "react-router";
+import { Plus, FolderOpen, Trash2, Loader2, LogOut, Settings } from "lucide-react";
 import { Button } from "~/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
+import { CreateProjectDialog } from "~/components/inputs/CreateProjectDialog";
 import { getCurrentUser, signOut, isSupabaseConfigured } from "~/services/authService";
-import { getProjects, createProject, deleteProject } from "~/services/projectService";
+import { getProjects, deleteProject } from "~/services/projectService";
 import type { Project } from "~/services/projectService";
 import { useAppStore } from "~/stores/appStore";
 
@@ -13,9 +14,8 @@ export default function ProjectsPage() {
   const setProject = useAppStore((s) => s.setProject);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -45,24 +45,6 @@ export default function ProjectsPage() {
   async function handleSignOut() {
     await signOut();
     navigate("/login");
-  }
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newName.trim()) return;
-    setCreating(true);
-    try {
-      const project = await createProject(newName.trim());
-      setProjects((prev) => [project, ...prev]);
-      setNewName("");
-      // Navigate to the project
-      setProject(project.id, project.name);
-      navigate("/");
-    } catch (err) {
-      console.error("Failed to create project:", err);
-    } finally {
-      setCreating(false);
-    }
   }
 
   async function handleDelete(id: string) {
@@ -97,6 +79,13 @@ export default function ProjectsPage() {
             {userEmail && (
               <span className="text-sm text-gray-500 hidden sm:inline">{userEmail}</span>
             )}
+            <Link
+              to="/settings"
+              className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-primary transition-colors"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Settings</span>
+            </Link>
             <button
               onClick={handleSignOut}
               className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-error transition-colors"
@@ -110,25 +99,18 @@ export default function ProjectsPage() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-8">
-        <form onSubmit={handleCreate} className="mb-8 flex gap-3">
-          <input
-            type="text"
-            placeholder="New project name..."
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-          <Button type="submit" disabled={creating || !newName.trim()}>
+        <div className="mb-8">
+          <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-1" />
-            Create
+            Create Project
           </Button>
-        </form>
+        </div>
 
         {projects.length === 0 ? (
           <div className="text-center py-16">
             <FolderOpen className="h-12 w-12 mx-auto text-gray-300 mb-4" />
             <h3 className="text-lg font-medium text-gray-700">No projects yet</h3>
-            <p className="text-sm text-gray-500 mt-1">Create your first feasibility project above.</p>
+            <p className="text-sm text-gray-500 mt-1">Create your first feasibility project.</p>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -161,6 +143,8 @@ export default function ProjectsPage() {
           </div>
         )}
       </main>
+
+      <CreateProjectDialog isOpen={dialogOpen} onClose={() => setDialogOpen(false)} />
     </div>
   );
 }

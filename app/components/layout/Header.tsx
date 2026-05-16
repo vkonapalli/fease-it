@@ -1,5 +1,5 @@
 import { Button } from "~/components/ui/Button";
-import { Calculator, Download, FolderOpen, LogOut } from "lucide-react";
+import { Calculator, Download, FolderOpen, LogOut, Settings } from "lucide-react";
 import { useFeasibilityStore } from "~/stores/feasibilityStore";
 import { exportAllScenariosToCSV } from "~/lib/export";
 import { useAppStore } from "~/stores/appStore";
@@ -37,6 +37,11 @@ export function Header() {
           <Link to="/projects">
             <Button variant="ghost" size="sm">
               <FolderOpen className="h-4 w-4 mr-1" /> Projects
+            </Button>
+          </Link>
+          <Link to="/settings">
+            <Button variant="ghost" size="sm">
+              <Settings className="h-4 w-4 mr-1" /> Settings
             </Button>
           </Link>
           <Button variant="secondary" size="sm" onClick={handleExport}>
