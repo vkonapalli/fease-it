@@ -3,19 +3,19 @@ import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Toggle } from "~/components/ui/Toggle";
 import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
+import { Button } from "~/components/ui/Button";
 import { useAppStore } from "~/stores/appStore";
 import { useShallow } from "zustand/react/shallow";
+import { RefreshCw } from "lucide-react";
 
 export function CapitalStackInputs() {
   const capitalStack = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.capitalStack));
   const financing = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.financing));
   const property = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.property));
+  const capitalSpread = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.capitalSpread));
   const updateActiveInputs = useAppStore((s) => s.updateActiveInputs);
 
   const totalProjectCost = useMemo(() => {
-    // Approximate total project cost for % calculations in inputs
-    // In practice, the actual total comes from calculations, but for input
-    // components we can use a rough estimate based on property value
     return property.purchasePrice;
   }, [property.purchasePrice]);
 
@@ -28,16 +28,81 @@ export function CapitalStackInputs() {
     return property.purchasePrice * (financing.secondLvr / 100);
   }, [property.purchasePrice, financing.secondLvr]);
 
+  // Compute linked spread totals by stack category
+  const spreadTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const item of capitalSpread) {
+      if (!item.linkedStackCategory) continue;
+      const amount = item.isPercentage
+        ? totalProjectCost * (item.amount / 100)
+        : item.amount;
+      totals[item.linkedStackCategory] = (totals[item.linkedStackCategory] ?? 0) + amount;
+    }
+    return totals;
+  }, [capitalSpread, totalProjectCost]);
+
   const updateStack = (updates: Partial<typeof capitalStack>) => {
     updateActiveInputs({ capitalStack: { ...capitalStack!, ...updates } });
   };
 
+  function syncFromSpread() {
+    const next = { ...capitalStack! };
+
+    const privateLendingTotal = spreadTotals["Private Lending"];
+    if (privateLendingTotal && privateLendingTotal > 0 && !next.privateLending.isPercentageOfCost) {
+      next.privateLending = { ...next.privateLending, amount: privateLendingTotal };
+    }
+
+    const profitSharingTotal = spreadTotals["Profit Sharing"];
+    if (profitSharingTotal && profitSharingTotal > 0) {
+      next.profitSharing = { ...next.profitSharing, amountCommitted: profitSharingTotal };
+    }
+
+    const devEquityTotal = spreadTotals["Developer Equity"];
+    if (devEquityTotal && devEquityTotal > 0) {
+      next.developerEquity = { ...next.developerEquity, isAutoComputed: false, amount: devEquityTotal };
+    }
+
+    const otherEquityTotal = spreadTotals["Other Equity"];
+    if (otherEquityTotal && otherEquityTotal > 0 && !next.otherEquity.isPercentageOfCost) {
+      next.otherEquity = { ...next.otherEquity, amount: otherEquityTotal };
+    }
+
+    updateActiveInputs({ capitalStack: next });
+  }
+
+  const hasLinkedItems = Object.keys(spreadTotals).length > 0;
+
   return (
     <Collapsible title="Capital Stack">
       <div className="space-y-4">
+        {hasLinkedItems && (
+          <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+            <div>
+              <p className="text-sm font-medium text-blue-900">Linked to Capital Spread</p>
+              <p className="text-xs text-blue-700">
+                {Object.entries(spreadTotals)
+                  .map(([cat, amt]) => `${cat}: ${formatCurrency(amt)}`)
+                  .join(" · ")}
+              </p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={syncFromSpread}>
+              <RefreshCw className="h-3.5 w-3.5 mr-1" />
+              Sync
+            </Button>
+          </div>
+        )}
+
         {/* Senior Debt (read-only from FinancingInputs) */}
         <div className="rounded-lg border border-gray-200 p-3">
-          <h4 className="text-sm font-semibold text-gray-800 mb-1">1. Senior Debt</h4>
+          <div className="flex items-center justify-between mb-1">
+            <h4 className="text-sm font-semibold text-gray-800">1. Senior Debt</h4>
+            {spreadTotals["Senior Debt"] > 0 && (
+              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                Spread: {formatCurrency(spreadTotals["Senior Debt"])}
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-600">
             {formatCurrency(seniorDebtAmount)} at {financing.lvr}% LVR
           </p>
@@ -46,7 +111,14 @@ export function CapitalStackInputs() {
         {/* Mezzanine Debt (read-only from FinancingInputs) */}
         {financing.secondLvr ? (
           <div className="rounded-lg border border-gray-200 p-3">
-            <h4 className="text-sm font-semibold text-gray-800 mb-1">2. Mezzanine Debt</h4>
+            <div className="flex items-center justify-between mb-1">
+              <h4 className="text-sm font-semibold text-gray-800">2. Mezzanine Debt</h4>
+              {spreadTotals["Mezzanine Debt"] > 0 && (
+                <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                  Spread: {formatCurrency(spreadTotals["Mezzanine Debt"])}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-gray-600">
               {formatCurrency(mezzanineDebtAmount)} at {financing.secondLvr}% LVR
             </p>
@@ -60,7 +132,14 @@ export function CapitalStackInputs() {
 
         {/* Private Lending */}
         <div className="rounded-lg border border-gray-200 p-3 space-y-2">
-          <h4 className="text-sm font-semibold text-gray-800">3. Private Lending</h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-gray-800">3. Private Lending</h4>
+            {spreadTotals["Private Lending"] > 0 && (
+              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                Spread: {formatCurrency(spreadTotals["Private Lending"])}
+              </span>
+            )}
+          </div>
           <Toggle
             options={[
               { label: "$ Amount", value: false },
@@ -110,7 +189,14 @@ export function CapitalStackInputs() {
 
         {/* Profit Sharing */}
         <div className="rounded-lg border border-gray-200 p-3 space-y-2">
-          <h4 className="text-sm font-semibold text-gray-800">4. Profit Sharing</h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-gray-800">4. Profit Sharing</h4>
+            {spreadTotals["Profit Sharing"] > 0 && (
+              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                Spread: {formatCurrency(spreadTotals["Profit Sharing"])}
+              </span>
+            )}
+          </div>
           <NumberField
             label="Amount Committed"
             value={capitalStack.profitSharing.amountCommitted}
@@ -152,7 +238,14 @@ export function CapitalStackInputs() {
 
         {/* Developer Equity */}
         <div className="rounded-lg border border-gray-200 p-3 space-y-2">
-          <h4 className="text-sm font-semibold text-gray-800">5. Developer Equity</h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-gray-800">5. Developer Equity</h4>
+            {spreadTotals["Developer Equity"] > 0 && (
+              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                Spread: {formatCurrency(spreadTotals["Developer Equity"])}
+              </span>
+            )}
+          </div>
           <Toggle
             options={[
               { label: "Auto", value: true },
@@ -182,7 +275,14 @@ export function CapitalStackInputs() {
 
         {/* Other Equity */}
         <div className="rounded-lg border border-gray-200 p-3 space-y-2">
-          <h4 className="text-sm font-semibold text-gray-800">6. Other Equity</h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-gray-800">6. Other Equity</h4>
+            {spreadTotals["Other Equity"] > 0 && (
+              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                Spread: {formatCurrency(spreadTotals["Other Equity"])}
+              </span>
+            )}
+          </div>
           <Toggle
             options={[
               { label: "$ Amount", value: false },
