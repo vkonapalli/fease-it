@@ -92,11 +92,21 @@ export function PropertyInputs() {
         {/* Address Finder */}
         <div className="space-y-3">
           <label className="block text-sm font-medium text-gray-700">Address</label>
-          <AddressAutocomplete
-            value={property.address}
-            onSelect={handleAddressSelect}
-            placeholder="Start typing address..."
-          />
+          {import.meta.env.VITE_ENABLE_GOOGLE_PLACES === "true" ? (
+            <AddressAutocomplete
+              value={property.address}
+              onSelect={handleAddressSelect}
+              placeholder="Start typing address..."
+            />
+          ) : (
+            <Input
+              value={property.address}
+              onChange={(e) =>
+                updateActiveInputs({ property: { ...property, address: e.target.value } })
+              }
+              placeholder="e.g. 123 High Street"
+            />
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <Input
