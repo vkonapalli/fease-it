@@ -25,6 +25,84 @@ const strategyDescriptions: Record<ProjectScenario, string> = {
   "sda-hold": "NDIS Specialist Disability Accommodation — build SDA-compliant dwellings and hold for NDIS rental income.",
 };
 
+const OVERRIDE_PATHS = {
+  property: {
+    label: "Property",
+    paths: {
+      purchasePrice: { type: "number", desc: "Purchase price in AUD", example: "800000" },
+      address: { type: "string", desc: "Street address", example: "'123 Main St'" },
+      suburb: { type: "string", desc: "Suburb name", example: "'Richmond'" },
+      postcode: { type: "string", desc: "Postcode", example: "'3121'" },
+      location: { type: "string", desc: "Australian state", example: "'VIC'" },
+      landArea: { type: "number", desc: "Land area in sqm", example: "600" },
+    },
+  },
+  development: {
+    label: "Development",
+    paths: {
+      numDwellings: { type: "number", desc: "Number of lots/dwellings", example: "2" },
+      constructionCostPerSqm: { type: "number", desc: "Construction cost per sqm in AUD", example: "2500" },
+      contingencyPercent: { type: "number", desc: "Contingency percentage", example: "5" },
+    },
+  },
+  financing: {
+    label: "Financing",
+    paths: {
+      lvr: { type: "number", desc: "Loan-to-value ratio", example: "70" },
+      interestRate: { type: "number", desc: "Annual interest rate %", example: "6.5" },
+      loanTermMonths: { type: "number", desc: "Loan term in months", example: "12" },
+    },
+  },
+  revenue: {
+    label: "Revenue",
+    paths: {
+      rentalIncomePerUnitPerWeek: { type: "number", desc: "Weekly rent per unit in AUD", example: "500" },
+      capitalGrowthRate: { type: "number", desc: "Annual capital growth %", example: "3" },
+      vacancyRate: { type: "number", desc: "Vacancy rate %", example: "5" },
+    },
+  },
+  operating: {
+    label: "Operating",
+    paths: {
+      holdPeriodYears: { type: "number", desc: "Hold period in years", example: "7" },
+    },
+  },
+} as const;
+
+type OverridePathDef = { type: string; desc: string; example: string };
+type OverrideSection = { label: string; paths: Record<string, OverridePathDef> };
+
+const FLAT_PATHS = Object.fromEntries(
+  Object.entries(OVERRIDE_PATHS).flatMap(([section, def]: [string, OverrideSection]) =>
+    Object.entries(def.paths).map(([key, pdef]) => [
+      `${section}.${key}`,
+      pdef,
+    ] as const)
+  )
+);
+
+function overridePathsRef(): string {
+  let out = "";
+  for (const [section, def] of Object.entries(OVERRIDE_PATHS)) {
+    out += `${def.label} (${section}.*):\n`;
+    for (const [key, pdef] of Object.entries(def.paths as Record<string, OverridePathDef>)) {
+      out += `  ${section}.${key} — ${pdef.desc} (${pdef.type}, e.g. ${pdef.example})\n`;
+    }
+    out += "\n";
+  }
+  return out;
+}
+
+function overridePathExamples(): string {
+  const paths = Object.entries(FLAT_PATHS).slice(0, 3);
+  const obj: Record<string, unknown> = {};
+  for (const [path, pdef] of paths) {
+    const val = pdef.type === "string" ? pdef.example : Number(pdef.example);
+    obj[path] = val;
+  }
+  return JSON.stringify(obj);
+}
+
 export function setDeep(obj: Record<string, unknown>, path: string, value: unknown): void {
   const keys = path.split(".");
   let current: Record<string, unknown> = obj;
@@ -44,6 +122,9 @@ export function applyOverrides<T extends Record<string, unknown>>(
 ): T {
   const result = structuredClone(obj) as Record<string, unknown>;
   for (const [path, value] of Object.entries(overrides)) {
+    if (!(path in FLAT_PATHS)) {
+      console.warn(`[AI Override] Unknown path: "${path}". Allowed: ${Object.keys(FLAT_PATHS).join(", ")}`);
+    }
     setDeep(result, path, value);
   }
   return result as T;
@@ -79,7 +160,7 @@ function summariseResult(inputs: FeasibilityInputs, scenario: ProjectScenario) {
 
 export const getInputsForStrategy = tool({
   description:
-    "Get the default feasibility inputs for a given project strategy. Returns the complete FeasibilityInputs object with sensible defaults that can be overridden.",
+    "Get the default feasibility inputs for a given project strategy. Returns the complete FeasibilityInputs object with sensible defaults. Use this when the user asks what defaults look like for a strategy.",
   inputSchema: z.object({
     strategy: scenarioSchema.describe("The project scenario/strategy to get defaults for"),
   }),
@@ -95,14 +176,19 @@ export const getInputsForStrategy = tool({
 
 export const calculateScenarioSummary = tool({
   description:
-    "Create default inputs for a strategy, apply the given overrides, and run a feasibility calculation. Returns key financial metrics. Use this to show the user what a scenario would look like before creating it.",
+    "Run a feasibility calculation for a strategy. Creates default inputs, applies your overrides, and returns key financial metrics. CRITICAL: You MUST include the overrides parameter populated with EVERY value the user mentioned. Never pass an empty overrides object — if the user said '$800k purchase price', you MUST send { 'property.purchasePrice': 800000 }. Only omit overrides if the user literally specified nothing about the property.",
   inputSchema: z.object({
-    strategy: scenarioSchema.describe("The project scenario/strategy to evaluate"),
+    strategy: scenarioSchema.describe(
+      "The project scenario/strategy to evaluate. Choose based on what the user wants: sell-all for immediate profit, rental-hold for long-term rental, sell-1-hold-1 for balanced approach, build-hold to build and rent, land-plus-build to sell one/build one, sda-hold for NDIS disability housing."
+    ),
     overrides: z
       .record(z.string(), z.unknown())
       .optional()
       .describe(
-        "Optional dot-path overrides for the default inputs, e.g. { 'property.purchasePrice': 850000, 'property.address': '123 Main St', 'property.location': 'VIC', 'development.numDwellings': 3, 'financing.lvr': 80 }. Only specify fields the user wants changed."
+        "REQUIRED when the user specifies ANY values. Dot-path overrides for default inputs. " +
+        "Available paths:\n" +
+        overridePathsRef() +
+        "Example: " + overridePathExamples()
       ),
   }),
   execute: async ({ strategy, overrides = {} }) => {
@@ -135,10 +221,12 @@ export const listTemplatePacks = tool({
 
 export const estimateStampDuty = tool({
   description:
-    "Estimate the stamp duty (land transfer duty) for a property purchase in an Australian state.",
+    "Estimate the stamp duty (land transfer duty) for a property purchase in an Australian state. Use this when the user specifically asks about stamp duty or wants to know the duty amount for a given price and state.",
   inputSchema: z.object({
-    state: z.enum(["VIC", "NSW", "QLD", "SA", "WA", "TAS", "ACT", "NT"]).describe("Australian state/territory"),
-    purchasePrice: z.number().min(0).describe("Property purchase price in AUD"),
+    state: z
+      .enum(["VIC", "NSW", "QLD", "SA", "WA", "TAS", "ACT", "NT"])
+      .describe("Australian state/territory"),
+    purchasePrice: z.number().min(0).describe("Property purchase price in AUD (e.g. 800000 for $800k)"),
   }),
   execute: async ({ state, purchasePrice }) => {
     const duty = calculateStampDuty(state, purchasePrice);
@@ -151,44 +239,119 @@ export const estimateStampDuty = tool({
   },
 });
 
+const overridePathsReferenceForActions = overridePathsRef();
+
+export const runCalculation = tool({
+  description:
+    "Write and execute JavaScript to perform calculations, financial analysis, or data transformations. Use for ad-hoc math, formulas, comparisons, or any computation the other tools don't cover. The last evaluated expression is returned as the result. You have access to Math, Date, JSON, and all standard JavaScript globals. Use console.log() to print intermediate values for debugging — the output will be captured.",
+  inputSchema: z.object({
+    code: z.string().describe(
+      "JavaScript code to execute. Can be a single expression or a multi-line block. Use arrow functions or IIFEs for complex logic. Variables inside the block are scoped locally. Examples:\n" +
+      "- '800000 * 0.055' — simple expression\n" +
+      "- '(500 * 52) / 800000 * 100' — rental yield %\n" +
+      "- '(() => { const loan = 800000 * 0.7; const monthly = loan * 0.065 / 12; return { loan, monthly, annualCost: monthly * 12 }; })()' — IIFE for multi-step\n" +
+      "- '1200000 * 0.8 / 52' — weekly rent at 8% yield\n" +
+      "- Use console.log(x) to debug intermediate values"
+    ),
+    context: z
+      .record(z.string(), z.unknown())
+      .optional()
+      .describe("Optional variables to inject into the code scope. Pass results from previous tool calls here."),
+  }),
+  execute: async ({ code, context = {} }) => {
+    const logs: string[] = [];
+    const sandbox: Record<string, unknown> = {
+      Math,
+      Number,
+      String,
+      Array,
+      Object,
+      Date,
+      JSON,
+      Boolean,
+      RegExp,
+      Map,
+      Set,
+      parseInt,
+      parseFloat,
+      isNaN,
+      isFinite,
+      Infinity,
+      NaN,
+      undefined,
+      console: {
+        log: (...args: unknown[]) => logs.push(args.map(String).join(" ")),
+        warn: (...args: unknown[]) => logs.push("[warn] " + args.map(String).join(" ")),
+        error: (...args: unknown[]) => logs.push("[error] " + args.map(String).join(" ")),
+      },
+      ...context,
+    };
+
+    const argNames = Object.keys(sandbox);
+    const argValues = Object.values(sandbox);
+
+    try {
+      const wrappedCode = `"use strict"; return (${code});`;
+      const fn = new Function(...argNames, wrappedCode);
+      const result = fn(...argValues);
+      return logs.length > 0 ? { result, logs } : { result };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack?.split("\n").slice(0, 3).join("\n") : undefined;
+      return { error: message, stack, code, logs: logs.length > 0 ? logs : undefined };
+    }
+  },
+});
+
 export const applyProjectActions = tool({
   description:
-    "Apply state changes to the project. Call this tool when the user wants to create scenarios, update inputs, or set up template packs. After calling this, you will receive confirmation of what was applied. Always call this tool when the user expresses intent to modify the project.",
+    "Create scenarios, update inputs, or load template packs in the user's project. Call this EXACTLY ONCE when the user wants to modify the project. Combine multiple actions into one call when possible. After calling, confirm what was done in plain English.",
   inputSchema: z.object({
-    actions: z.array(
-      z.object({
-        type: z
-          .enum(["create_scenario", "update_inputs", "create_from_pack"])
-          .describe("The type of action to perform"),
-        name: z
-          .string()
-          .optional()
-          .describe("For create_scenario: the name of the new scenario"),
-        strategy: scenarioSchema
-          .optional()
-          .describe("For create_scenario: the strategy to use"),
-        overrides: z
-          .record(z.string(), z.unknown())
-          .optional()
-          .describe(
-            "For create_scenario: dot-path overrides for the strategy's default inputs"
-          ),
-        changes: z
-          .record(z.string(), z.unknown())
-          .optional()
-          .describe(
-            "For update_inputs: dot-path key-value pairs to merge into the current scenario's inputs"
-          ),
-        packId: z
-          .string()
-          .optional()
-          .describe("For create_from_pack: the template pack ID"),
-        selectedIds: z
-          .array(z.string())
-          .optional()
-          .describe("For create_from_pack: which scenario IDs from the pack to create"),
-      })
-    ).describe("One or more actions to apply to the project"),
+    actions: z
+      .array(
+        z.object({
+          type: z
+            .enum(["create_scenario", "update_inputs", "create_from_pack"])
+            .describe("The type of action to perform"),
+          name: z
+            .string()
+            .optional()
+            .describe(
+              "For create_scenario: a descriptive name for the new scenario (e.g. 'Sell All - 800k VIC')"
+            ),
+          strategy: scenarioSchema
+            .optional()
+            .describe("For create_scenario: the strategy to use"),
+          overrides: z
+            .record(z.string(), z.unknown())
+            .optional()
+            .describe(
+              "For create_scenario: dot-path overrides for the strategy's default inputs. Include EVERY user-specified value. Available paths:\n" +
+              overridePathsReferenceForActions
+            ),
+          changes: z
+            .record(z.string(), z.unknown())
+            .optional()
+            .describe(
+              "For update_inputs: dot-path key-value pairs to merge into the CURRENT active scenario. Same paths as overrides. Include ONLY the fields the user wants to change."
+            ),
+          packId: z
+            .string()
+            .optional()
+            .describe(
+              "For create_from_pack: the template pack ID (use listTemplatePacks first to find available packs)"
+            ),
+          selectedIds: z
+            .array(z.string())
+            .optional()
+            .describe(
+              "For create_from_pack: which scenario IDs from the pack to create (use all if user wants all)"
+            ),
+        })
+      )
+      .describe(
+        "One or more actions to apply. Batch related actions together (e.g. create 3 scenarios in one call). Each action must include all relevant fields."
+      ),
   }),
   execute: async ({ actions }) => {
     return {
@@ -199,15 +362,17 @@ export const applyProjectActions = tool({
   },
 });
 
-export function resolveActions(actions: Array<{
-  type: string;
-  name?: string;
-  strategy?: string;
-  overrides?: Record<string, unknown>;
-  changes?: Record<string, unknown>;
-  packId?: string;
-  selectedIds?: string[];
-}>) {
+export function resolveActions(
+  actions: Array<{
+    type: string;
+    name?: string;
+    strategy?: string;
+    overrides?: Record<string, unknown>;
+    changes?: Record<string, unknown>;
+    packId?: string;
+    selectedIds?: string[];
+  }>
+) {
   const resolved: Array<{
     type: string;
     name: string;
@@ -223,7 +388,10 @@ export function resolveActions(actions: Array<{
       const strategy = action.strategy as ProjectScenario;
       const baseInputs = createInputsForStrategy(strategy);
       const inputs = action.overrides
-        ? (applyOverrides(baseInputs as unknown as Record<string, unknown>, action.overrides) as unknown as FeasibilityInputs)
+        ? (applyOverrides(
+            baseInputs as unknown as Record<string, unknown>,
+            action.overrides
+          ) as unknown as FeasibilityInputs)
         : baseInputs;
       resolved.push({
         type: "create_scenario",
@@ -252,35 +420,31 @@ export function resolveActions(actions: Array<{
 
 export const SYSTEM_PROMPT = `You are an AI assistant for Fease-It, an Australian property feasibility analysis tool. You help users create and evaluate property development scenarios.
 
-## Your Capabilities
-- Get default inputs for any of the 6 project strategies (sell-all, sell-1-hold-1, rental-hold, land-plus-build, build-hold, sda-hold)
-- Run feasibility calculations to show profit, costs, revenue, and key metrics
-- List template packs (collections of related scenarios)
-- Estimate Australian stamp duty for any state
-- Apply changes to the project: create scenarios, update inputs, or load template packs
+## Available Tools
+- **calculateScenarioSummary**: Run a feasibility calculation with user's values. Returns profit, costs, revenue, etc. Use this for "what does this look like?" questions.
+- **getInputsForStrategy**: Get default inputs for a strategy (rarely needed).
+- **estimateStampDuty**: Calculate Australian stamp duty.
+- **listTemplatePacks**: List available scenario template packs.
+- **runCalculation**: Execute JavaScript for ad-hoc financial math (yield, ROI, loan payments, compound growth).
+- **applyProjectActions**: Create/update scenarios in the project. Call this when the user wants to actually make changes.
 
-## Strategy Descriptions
+## Strategy Types
 - **sell-all**: Sell all lots at completion for immediate profit
-- **sell-1-hold-1**: Sell one lot, hold one for rental income and capital growth
+- **sell-1-hold-1**: Sell one lot, hold one for rental income and growth
 - **rental-hold**: Hold all lots for rental income and long-term appreciation
 - **land-plus-build**: Sell one raw lot, build and hold the other
 - **build-hold**: Build dwellings on all lots and hold for rental
 - **sda-hold**: NDIS Specialist Disability Accommodation with high-yield rental
 
-## How to Work
-1. When a user asks to create or check a feasibility:
-   - Use getInputsForStrategy to get default inputs (optional)
-   - Use calculateScenarioSummary with relevant overrides to show projected results
-   - Use estimateStampDuty if the user asks about stamp duty
-   - If the user wants to actually create/set up the scenario, call applyProjectActions
-2. When a user asks about available options:
-   - Use listTemplatePacks to show available packs
-3. Overrides use dot-path notation: "property.purchasePrice", "financing.lvr", "development.numDwellings", etc.
-4. Always explain what you found/created in plain English after using tools.
-5. Be concise but informative. Show key metrics ($ profit, margin %, cash required).
+## Override Paths
+When the user specifies values, you MUST pass them as overrides. Never pass empty overrides.
 
-## Important
-- Always use the tools to get accurate data — never guess financial numbers.
-- When the user expresses intent to create/modify things, ALWAYS call applyProjectActions.
-- Australian states: VIC, NSW, QLD, SA, WA, TAS, ACT, NT
-- Currency is AUD ($)`;
+${overridePathsRef()}
+## CRITICAL Rules
+1. **Always populate overrides**: If the user said "$800k purchase in VIC", call calculateScenarioSummary with { "property.purchasePrice": 800000, "property.location": "VIC" } — NOT with empty overrides.
+2. **One call**: Call calculateScenarioSummary ONCE with all user values. Then call applyProjectActions ONCE if the user wants to create things.
+3. **runCalculation for ad-hoc math**: Use runCalculation for yield calculations, ROI, loan payments, compound growth, and any financial math the other tools don't cover.
+4. **Convert values**: "$800k" = 800000, "6.5%" = 6.5, "$1.2M" = 1200000. Strings need quotes, numbers and booleans do not.
+5. **States**: VIC, NSW, QLD, SA, WA, TAS, ACT, NT
+6. **Be concise**: Show key metrics ($ profit, margin %, cash required) in a brief summary.
+7. **Never guess numbers**: Always use the tools.`;

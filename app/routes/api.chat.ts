@@ -8,6 +8,7 @@ import {
   listTemplatePacks,
   estimateStampDuty,
   applyProjectActions,
+  runCalculation,
   SYSTEM_PROMPT,
 } from "~/lib/ai/tools";
 
@@ -17,6 +18,7 @@ const tools = {
   listTemplatePacks,
   estimateStampDuty,
   applyProjectActions,
+  runCalculation,
 };
 
 export async function loader() {
@@ -39,6 +41,16 @@ export async function action({ request }: Route.ActionArgs) {
     messages: await convertToModelMessages(messages, { tools }),
     tools,
     stopWhen: stepCountIs(10),
+    onStepFinish: ({ toolCalls, toolResults }) => {
+      for (const tc of toolCalls) {
+        const input = tc.input ? JSON.stringify(tc.input) : "(none)";
+        console.log(`[AI Tool: ${tc.toolName}] ${input}`);
+      }
+      for (const tr of toolResults) {
+        const t = tr as unknown as Record<string, unknown>;
+        console.log(`[AI Tool Result: ${t.toolCallId}] ${JSON.stringify(t.result ?? t)}`);
+      }
+    },
   });
 
   return result.toUIMessageStreamResponse();

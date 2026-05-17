@@ -107,6 +107,15 @@ export function AIChat() {
       const pendingActions: ParsedAction[] = [];
 
       for (const part of message.parts) {
+        if (part.type === "dynamic-tool") {
+          const toolInput = (part as Record<string, unknown>).input;
+          const toolOutput = (part as Record<string, unknown>).output;
+          console.log(
+            `[AI Client: ${part.toolName}] state=${part.state}`,
+            JSON.stringify({ input: toolInput, output: toolOutput })
+          );
+        }
+
         if (
           part.type === "dynamic-tool" &&
           part.toolName === "applyProjectActions" &&
@@ -253,16 +262,29 @@ export function AIChat() {
                   }
                   if (part.type === "dynamic-tool") {
                     const isApplied = part.toolName === "applyProjectActions";
+                    const toolInput = (part as Record<string, unknown>).input as Record<string, unknown> | undefined;
                     const isOutputAvailable = part.state === "output-available";
+                    const isInputAvailable = part.state === "input-available";
                     const isError = part.state === "output-error";
 
                     if (isError) {
                       return (
                         <div
                           key={i}
-                          className="my-1.5 rounded-lg bg-red-100 px-2.5 py-1.5 text-xs text-red-600"
+                          className="my-1.5 rounded-lg bg-red-100 px-2.5 py-1.5 text-xs"
                         >
-                          Error: {(part as Record<string, unknown>).errorText as string || "Tool failed"}
+                          <div className="font-medium text-red-700">{part.toolName} failed</div>
+                          <div className="mt-0.5 text-red-600">
+                            {(part as Record<string, unknown>).errorText as string || "Unknown error"}
+                          </div>
+                          {toolInput && Object.keys(toolInput).length > 0 && (
+                            <details className="mt-1">
+                              <summary className="cursor-pointer text-red-500">Sent parameters</summary>
+                              <pre className="mt-1 whitespace-pre-wrap break-all text-red-500">
+                                {JSON.stringify(toolInput, null, 2)}
+                              </pre>
+                            </details>
+                          )}
                         </div>
                       );
                     }
@@ -277,7 +299,37 @@ export function AIChat() {
                               : "bg-white/60 text-gray-500"
                           }`}
                         >
-                          {isApplied ? "Changes applied" : `✓ ${part.toolName}`}
+                          <div className="font-medium">
+                            {isApplied ? "Changes applied" : `✓ ${part.toolName}`}
+                          </div>
+                          {toolInput && Object.keys(toolInput).length > 0 && (
+                            <details className="mt-0.5">
+                              <summary className="cursor-pointer opacity-60 hover:opacity-100">Parameters</summary>
+                              <pre className="mt-1 whitespace-pre-wrap break-all opacity-60">
+                                {JSON.stringify(toolInput, null, 2)}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    if (isInputAvailable) {
+                      return (
+                        <div
+                          key={i}
+                          className="my-1.5 flex items-center gap-1.5 rounded-lg bg-white/60 px-2.5 py-1.5 text-xs text-gray-500"
+                        >
+                          <Wrench className="h-3 w-3 shrink-0" />
+                          <span className="font-medium">{part.toolName}</span>
+                          {toolInput && Object.keys(toolInput).length > 0 && (
+                            <details className="ml-1">
+                              <summary className="cursor-pointer">params</summary>
+                              <pre className="mt-1 whitespace-pre-wrap break-all">
+                                {JSON.stringify(toolInput, null, 2)}
+                              </pre>
+                            </details>
+                          )}
                         </div>
                       );
                     }
@@ -289,6 +341,7 @@ export function AIChat() {
                       >
                         <Wrench className="h-3 w-3 shrink-0" />
                         <span className="font-medium">{part.toolName}</span>
+                        <Loader2 className="ml-1 h-3 w-3 animate-spin" />
                       </div>
                     );
                   }
