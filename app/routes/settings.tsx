@@ -1,17 +1,14 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router";
 import { useAppStore } from "~/stores/appStore";
 import { BUILT_IN_PACKS, getAllPacks, createScenarioTemplate } from "~/lib/templates";
 import { Button } from "~/components/ui/Button";
 import {
-  ArrowLeft,
   Star,
   Copy,
   Trash2,
   Plus,
   ChevronUp,
   ChevronDown,
-  Settings,
   Check,
   X,
   Package,
@@ -29,7 +26,6 @@ const STRATEGY_OPTIONS: { value: ProjectScenario; label: string }[] = [
 ];
 
 export default function SettingsPage() {
-  const navigate = useNavigate();
   const customPacks = useAppStore((s) => s.customPacks);
   const preferredPackId = useAppStore((s) => s.preferredPackId);
   const saveCustomPack = useAppStore((s) => s.saveCustomPack);
@@ -143,26 +139,7 @@ export default function SettingsPage() {
   const displayPack = isEditing ? editingPack : selectedPack;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white px-4 py-4">
-        <div className="mx-auto max-w-6xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate("/projects")}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <h1 className="text-xl font-bold text-primary flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Settings
-            </h1>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl px-4 py-8">
+    <main className="mx-auto max-w-6xl px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Pack List */}
           <div className="lg:col-span-1">
@@ -434,7 +411,6 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
-      </main>
-    </div>
+    </main>
   );
 }

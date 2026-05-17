@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router";
-import { Plus, FolderOpen, Trash2, Loader2, LogOut, Settings } from "lucide-react";
+import { useNavigate } from "react-router";
+import { Plus, FolderOpen, Trash2, Loader2 } from "lucide-react";
 import { Button } from "~/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
 import { CreateProjectDialog } from "~/components/inputs/CreateProjectDialog";
-import { getCurrentUser, signOut, isSupabaseConfigured } from "~/services/authService";
+import { getCurrentUser, isSupabaseConfigured } from "~/services/authService";
 import { getProjects, deleteProject } from "~/services/projectService";
 import type { Project } from "~/services/projectService";
 import { useAppStore } from "~/stores/appStore";
@@ -14,7 +14,6 @@ export default function ProjectsPage() {
   const setProject = useAppStore((s) => s.setProject);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -29,7 +28,6 @@ export default function ProjectsPage() {
           navigate("/login");
           return;
         }
-        setUserEmail(user.email ?? null);
         const data = await getProjects();
         setProjects(data);
       } catch (err) {
@@ -41,11 +39,6 @@ export default function ProjectsPage() {
     }
     init();
   }, [navigate]);
-
-  async function handleSignOut() {
-    await signOut();
-    navigate("/login");
-  }
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this project and all its scenarios?")) return;
@@ -59,7 +52,7 @@ export default function ProjectsPage() {
 
   function handleOpen(project: Project) {
     setProject(project.id, project.name);
-    navigate("/");
+    navigate(`/projects/${project.id}`);
   }
 
   if (loading) {
@@ -71,34 +64,7 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="border-b border-gray-200 bg-white px-4 py-4">
-        <div className="mx-auto max-w-5xl flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-primary">Fease-it</h1>
-          <div className="flex items-center gap-4">
-            {userEmail && (
-              <span className="text-sm text-gray-500 hidden sm:inline">{userEmail}</span>
-            )}
-            <Link
-              to="/settings"
-              className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-primary transition-colors"
-            >
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Settings</span>
-            </Link>
-            <button
-              onClick={handleSignOut}
-              className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-error transition-colors"
-              title="Sign out"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Sign out</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-5xl px-4 py-8">
+    <main className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-8">
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-1" />
@@ -142,9 +108,8 @@ export default function ProjectsPage() {
             ))}
           </div>
         )}
-      </main>
 
       <CreateProjectDialog isOpen={dialogOpen} onClose={() => setDialogOpen(false)} />
-    </div>
+    </main>
   );
 }

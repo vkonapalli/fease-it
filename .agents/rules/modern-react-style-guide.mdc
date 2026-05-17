@@ -1,0 +1,167 @@
+---
+description: Modern React Style Guide
+globs:
+alwaysApply: false
+---
+
+## ✅ Modern React + TypeScript Rules for Cursor and Claude Code
+
+### 🔠 **Component Typing**
+
+* **DO NOT use `React.FC`**
+
+  ❌ `const MyComponent: React.FC<Props> = () => { ... }`
+  ✅ `function MyComponent(props: Props) { ... }`
+  ✅ `const MyComponent = (props: Props) => { ... }`
+
+  > Avoid `React.FC` because it:
+  >
+  > * Implicitly adds `children`, even if not expected.
+  > * Obscures prop types in editors/hover tooltips.
+  > * Makes defaultProps harder to use with TypeScript.
+
+---
+
+### 🧱 **Props & Types**
+
+* **Always type the `props` object explicitly**
+
+  ✅ Define a `Props` type or inline it:
+
+  ```ts
+  type Props = { title: string; };
+  const Header = ({ title }: Props) => <h1>{title}</h1>;
+  ```
+
+* **Group and name prop types clearly**
+
+  ✅ `interface ButtonProps` or `type ButtonProps` — use `Props` suffix.
+
+* **Use `interface` for public/shared components; `type` for local-only**
+
+  > `interface` is preferred when extending, especially in component libraries.
+
+* **Prefer union types over enums**
+
+  ✅
+
+  ```ts
+  type Geography =
+    | "Australia"
+    | "United States";
+  ```
+
+  ❌
+
+  ```ts
+  enum Geography {
+    AU = "Australia",
+    US = "United States",
+  }
+  ```
+
+---
+
+### 🔁 **Hooks & State**
+
+* **Always type hook return values if reused/shared**
+
+  ✅
+
+  ```ts
+  function useUser(): [User | null, boolean] {
+    ...
+  }
+  ```
+
+* **Avoid excessive `useEffect` for derived state**
+
+  > Use memoization or derived variables instead of syncing with effects.
+
+---
+
+### 📦 **Component Structure**
+
+* **One component per file** (unless small and tightly coupled)
+* **Use PascalCase** for file and component names: `UserCard.tsx`, `MyForm.tsx`
+* **Group hooks and utilities into folders**: `/hooks`, `/utils`, `/components`
+* **Presentation-layer components**: `/components/ui`
+
+---
+
+### 📐 **Zod Schemas**
+
+* **Use the same name for schemas and inferred types**
+* **Use upper camel case for names**
+* **Avoid `Schema` and `Type` suffix in names**
+* **Prefer readable code over excessive comments**
+
+---
+
+### 🎨 **Styling**
+
+* Use Tailwind CSS for app styling.
+* Control style of Tracksuit Design components by adding Tailwind classes.
+* Avoid global or custom CSS.
+
+---
+
+### 🧪 **Testing & Storybook**
+
+* Co-locate test files: `MyComponent.test.tsx`
+* Use Testing Library; avoid low-level DOM inspection.
+* Use User Events instead of `fireEvent`.
+* Avoid [common mistakes with React Testing Library](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library)
+
+---
+
+### 🤖 **AI Collaboration Optimizations (for Cursor & Claude)**
+
+* **Use named exports over default exports**
+
+  ✅ `export const Button = () => ...`
+  ❌ `export default () => ...`
+
+* **Always place `export` statements at the end of the file**
+
+  ✅
+
+  ```ts
+  const Button = () => { ... };
+  export { Button };
+  ```
+
+  ❌
+
+  ```ts
+  export const Button = () => { ... };
+  ```
+
+  > This helps AI tools like Cursor and Claude understand full context before exports, improving autocomplete, inlining, and code navigation.
+
+* **Keep components small and composable** — improves refactorability.
+
+* **Use clear function and type names for improved suggestions**
+
+* **Comment non-obvious components or logic with short doc-style comments**
+
+  ✅
+
+  ```ts
+  // Renders user avatar with fallback initials
+  const Avatar = ({ user }: AvatarProps) => ...
+  ```
+
+---
+
+### 🧼 Miscellaneous
+
+* **Avoid `any`, prefer `unknown` or precise types**
+
+* **Always prefer `key` with stable values** in `.map()`:
+
+  ```ts
+  items.map((item) => <Row key={item.id} ... />)
+  ```
+
+* **Don’t mix default + named exports in same file** – confuses tooling and AI.
