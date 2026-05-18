@@ -176,25 +176,30 @@ export const getInputsForStrategy = tool({
 
 export const calculateScenarioSummary = tool({
   description:
-    "Run a feasibility calculation for a strategy. Creates default inputs, applies your overrides, and returns key financial metrics. CRITICAL: You MUST include the overrides parameter populated with EVERY value the user mentioned. Never pass an empty overrides object — if the user said '$800k purchase price', you MUST send { 'property.purchasePrice': 800000 }. Only omit overrides if the user literally specified nothing about the property.",
+    "Run a feasibility calculation. You MUST provide overrides for EVERY value the user mentioned (purchase price, location, number of lots, LVR, interest rate, etc). " +
+    "If the user said '$800k purchase in VIC', call with overrides: { 'property.purchasePrice': 800000, 'property.location': 'VIC' }. Available override paths:\n" +
+    overridePathsRef(),
   inputSchema: z.object({
     strategy: scenarioSchema.describe(
-      "The project scenario/strategy to evaluate. Choose based on what the user wants: sell-all for immediate profit, rental-hold for long-term rental, sell-1-hold-1 for balanced approach, build-hold to build and rent, land-plus-build to sell one/build one, sda-hold for NDIS disability housing."
+      "The project scenario/strategy to evaluate: sell-all, sell-1-hold-1, rental-hold, land-plus-build, build-hold, sda-hold"
     ),
     overrides: z
       .record(z.string(), z.unknown())
-      .optional()
       .describe(
-        "REQUIRED when the user specifies ANY values. Dot-path overrides for default inputs. " +
-        "Available paths:\n" +
-        overridePathsRef() +
-        "Example: " + overridePathExamples()
+        "REQUIRED. Dot-path overrides for every user-specified value. Examples: " +
+        "{ 'property.purchasePrice': 800000, 'property.location': 'VIC' } or " +
+        "{ 'property.purchasePrice': 1200000, 'development.numDwellings': 3, 'financing.lvr': 80 }"
       ),
   }),
-  execute: async ({ strategy, overrides = {} }) => {
+  execute: async ({ strategy, overrides }) => {
     const baseInputs = createInputsForStrategy(strategy as ProjectScenario);
     const inputs = applyOverrides(baseInputs as unknown as Record<string, unknown>, overrides);
-    return summariseResult(inputs as unknown as FeasibilityInputs, strategy as ProjectScenario);
+    const empty = Object.keys(overrides).length === 0;
+    const result = summariseResult(inputs as unknown as FeasibilityInputs, strategy as ProjectScenario);
+    if (empty) {
+      return { warning: "No overrides were provided — using default inputs. If the user specified values (purchase price, location, etc.), you forgot to pass them. You MUST call this tool again with overrides populated.", ...result };
+    }
+    return result;
   },
 });
 
@@ -239,8 +244,6 @@ export const estimateStampDuty = tool({
   },
 });
 
-const overridePathsReferenceForActions = overridePathsRef();
-
 export const runCalculation = tool({
   description:
     "Write and execute JavaScript to perform calculations, financial analysis, or data transformations. Use for ad-hoc math, formulas, comparisons, or any computation the other tools don't cover. The last evaluated expression is returned as the result. You have access to Math, Date, JSON, and all standard JavaScript globals. Use console.log() to print intermediate values for debugging — the output will be captured.",
@@ -261,24 +264,8 @@ export const runCalculation = tool({
   execute: async ({ code, context = {} }) => {
     const logs: string[] = [];
     const sandbox: Record<string, unknown> = {
-      Math,
-      Number,
-      String,
-      Array,
-      Object,
-      Date,
-      JSON,
-      Boolean,
-      RegExp,
-      Map,
-      Set,
-      parseInt,
-      parseFloat,
-      isNaN,
-      isFinite,
-      Infinity,
-      NaN,
-      undefined,
+      Math, Number, String, Array, Object, Date, JSON, Boolean, RegExp, Map, Set,
+      parseInt, parseFloat, isNaN, isFinite, Infinity, NaN, undefined,
       console: {
         log: (...args: unknown[]) => logs.push(args.map(String).join(" ")),
         warn: (...args: unknown[]) => logs.push("[warn] " + args.map(String).join(" ")),
@@ -309,49 +296,34 @@ export const applyProjectActions = tool({
   inputSchema: z.object({
     actions: z
       .array(
-        z.object({
-          type: z
-            .enum(["create_scenario", "update_inputs", "create_from_pack"])
-            .describe("The type of action to perform"),
-          name: z
-            .string()
-            .optional()
-            .describe(
-              "For create_scenario: a descriptive name for the new scenario (e.g. 'Sell All - 800k VIC')"
-            ),
-          strategy: scenarioSchema
-            .optional()
-            .describe("For create_scenario: the strategy to use"),
-          overrides: z
-            .record(z.string(), z.unknown())
-            .optional()
-            .describe(
-              "For create_scenario: dot-path overrides for the strategy's default inputs. Include EVERY user-specified value. Available paths:\n" +
-              overridePathsReferenceForActions
-            ),
-          changes: z
-            .record(z.string(), z.unknown())
-            .optional()
-            .describe(
-              "For update_inputs: dot-path key-value pairs to merge into the CURRENT active scenario. Same paths as overrides. Include ONLY the fields the user wants to change."
-            ),
-          packId: z
-            .string()
-            .optional()
-            .describe(
-              "For create_from_pack: the template pack ID (use listTemplatePacks first to find available packs)"
-            ),
-          selectedIds: z
-            .array(z.string())
-            .optional()
-            .describe(
-              "For create_from_pack: which scenario IDs from the pack to create (use all if user wants all)"
-            ),
-        })
+        z.discriminatedUnion("type", [
+          z.object({
+            type: z.literal("create_scenario"),
+            name: z.string().optional().describe("Descriptive name (e.g. 'Sell All - 800k VIC')"),
+            strategy: scenarioSchema.describe("The strategy to use"),
+            overrides: z
+              .record(z.string(), z.unknown())
+              .describe(
+                "REQUIRED. Dot-path overrides for every user-specified value. " +
+                "Example: { 'property.purchasePrice': 800000, 'property.location': 'VIC' }"
+              ),
+          }),
+          z.object({
+            type: z.literal("update_inputs"),
+            changes: z
+              .record(z.string(), z.unknown())
+              .describe("Dot-path key-value pairs to merge into the current scenario's inputs"),
+          }),
+          z.object({
+            type: z.literal("create_from_pack"),
+            packId: z.string().describe("Template pack ID from listTemplatePacks"),
+            selectedIds: z
+              .array(z.string())
+              .describe("Scenario IDs from the pack to create (all if user wants all)"),
+          }),
+        ])
       )
-      .describe(
-        "One or more actions to apply. Batch related actions together (e.g. create 3 scenarios in one call). Each action must include all relevant fields."
-      ),
+      .describe("Actions to apply. Batch related actions into one call."),
   }),
   execute: async ({ actions }) => {
     return {
@@ -362,17 +334,12 @@ export const applyProjectActions = tool({
   },
 });
 
-export function resolveActions(
-  actions: Array<{
-    type: string;
-    name?: string;
-    strategy?: string;
-    overrides?: Record<string, unknown>;
-    changes?: Record<string, unknown>;
-    packId?: string;
-    selectedIds?: string[];
-  }>
-) {
+type ActionItem =
+  | { type: "create_scenario"; name?: string; strategy: string; overrides: Record<string, unknown> }
+  | { type: "update_inputs"; changes: Record<string, unknown> }
+  | { type: "create_from_pack"; packId: string; selectedIds: string[] };
+
+export function resolveActions(actions: ActionItem[]) {
   const resolved: Array<{
     type: string;
     name: string;
@@ -384,28 +351,26 @@ export function resolveActions(
   }> = [];
 
   for (const action of actions) {
-    if (action.type === "create_scenario" && action.strategy) {
+    if (action.type === "create_scenario") {
       const strategy = action.strategy as ProjectScenario;
       const baseInputs = createInputsForStrategy(strategy);
-      const inputs = action.overrides
-        ? (applyOverrides(
-            baseInputs as unknown as Record<string, unknown>,
-            action.overrides
-          ) as unknown as FeasibilityInputs)
-        : baseInputs;
+      const inputs = applyOverrides(
+        baseInputs as unknown as Record<string, unknown>,
+        action.overrides
+      ) as unknown as FeasibilityInputs;
       resolved.push({
         type: "create_scenario",
         name: action.name || `New ${strategy}`,
         inputs,
         strategy,
       });
-    } else if (action.type === "update_inputs" && action.changes) {
+    } else if (action.type === "update_inputs") {
       resolved.push({
         type: "update_inputs",
         name: "Update Inputs",
         changes: action.changes,
       });
-    } else if (action.type === "create_from_pack" && action.packId && action.selectedIds) {
+    } else if (action.type === "create_from_pack") {
       resolved.push({
         type: "create_from_pack",
         name: "Create from Pack",

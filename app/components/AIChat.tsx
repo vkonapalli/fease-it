@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import type { UIMessage } from "ai";
 import { useAppStore } from "~/stores/appStore";
 import { resolveActions, setDeep } from "~/lib/ai/tools";
 import { getAllPacks, createScenariosFromPack } from "~/lib/templates";
@@ -14,6 +15,8 @@ import {
   Sparkles,
   Wrench,
   Check,
+  MessageSquarePlus,
+  History,
 } from "lucide-react";
 
 interface ParsedAction {
@@ -81,17 +84,65 @@ const HINTS = [
   "Create all scenarios for $500k",
 ];
 
-export function AIChat() {
-  const [isOpen, setIsOpen] = useState(false);
+function getStorageKey(projectId: string | null) {
+  return projectId ? `fease-chat-thread-${projectId}` : "fease-chat-thread-global";
+}
+
+/* ────────────────────────────────────────────────
+   Inner component that actually calls useChat.
+   It receives stable initialMessages so history is
+   pre-populated on first render.
+   ──────────────────────────────────────────────── */
+function AIChatCore({
+  initialMessages,
+  initialThreadId,
+  projectId,
+  activeScenarioId,
+  projectName,
+  onClose,
+}: {
+  initialMessages: UIMessage[];
+  initialThreadId: string | null;
+  projectId: string | null;
+  activeScenarioId: string | null;
+  projectName: string;
+  onClose: () => void;
+}) {
   const [inputText, setInputText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const processedRef = useRef<Set<string>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(initialThreadId);
+
+  const metadata = {
+    projectId: projectId ?? null,
+    activeScenarioId: activeScenarioId ?? null,
+    projectName: projectName || "Untitled Project",
+  };
+
+  const storageKey = getStorageKey(projectId);
+
+  const handleThreadId = useCallback(
+    (tid: string | null) => {
+      if (!tid) return;
+      setThreadId(tid);
+      localStorage.setItem(storageKey, tid);
+    },
+    [storageKey]
+  );
 
   const { messages, sendMessage, status, error } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
-    sendAutomaticallyWhen: ({ messages }) => {
-      const last = messages[messages.length - 1];
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      body: {
+        intent: "chat",
+        threadId,
+        metadata,
+      },
+    }),
+    messages: initialMessages,
+    sendAutomaticallyWhen: ({ messages: msgs }) => {
+      const last = msgs[msgs.length - 1];
       if (!last || last.role !== "assistant") return false;
       return last.parts.some(
         (p) =>
@@ -140,20 +191,28 @@ export function AIChat() {
     },
   });
 
+  // Capture X-Thread-Id from response headers via a wrapped fetch
+  useEffect(() => {
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      const [url, init] = args;
+      if (typeof url === "string" && url.endsWith("/api/chat")) {
+        const res = await originalFetch(...args);
+        const tid = res.headers.get("X-Thread-Id");
+        if (tid) handleThreadId(tid);
+        // Return a cloned response so the body can still be read
+        return res.clone();
+      }
+      return originalFetch(...args);
+    };
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, [handleThreadId]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setIsOpen((prev) => !prev);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -162,20 +221,16 @@ export function AIChat() {
     setInputText("");
   }
 
+  function handleNewChat() {
+    setThreadId(null);
+    localStorage.removeItem(storageKey);
+    window.location.reload();
+  }
+
   const isLoading = status === "submitted" || status === "streaming";
 
   return (
     <>
-      {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg hover:bg-primary/90 transition-all hover:scale-105 active:scale-95"
-          title="AI Assistant (⌘K)"
-        >
-          <Sparkles className="h-6 w-6" />
-        </button>
-      )}
-
       {toast && (
         <div className="fixed bottom-6 right-24 z-[60] flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm text-white shadow-lg">
           <Check className="h-4 w-4" />
@@ -183,11 +238,7 @@ export function AIChat() {
         </div>
       )}
 
-      <div
-        className={`fixed right-0 top-0 z-50 h-full w-[420px] transform border-l border-gray-200 bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
+      <div className="fixed right-0 top-0 z-50 h-full w-[420px] transform border-l border-gray-200 bg-white shadow-2xl transition-transform duration-300 ease-in-out translate-x-0">
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -196,8 +247,15 @@ export function AIChat() {
           <div className="flex items-center gap-1">
             <span className="text-xs text-gray-400">⌘K</span>
             <button
-              onClick={() => setIsOpen(false)}
-              className="ml-2 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              onClick={handleNewChat}
+              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              title="New chat"
+            >
+              <MessageSquarePlus className="h-5 w-5" />
+            </button>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
               <X className="h-5 w-5" />
             </button>
@@ -411,13 +469,95 @@ export function AIChat() {
           </p>
         </form>
       </div>
-
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/20 transition-opacity"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
     </>
+  );
+}
+
+/* ────────────────────────────────────────────────
+   Wrapper component that loads chat history from
+   the server before mounting the core chat UI.
+   ──────────────────────────────────────────────── */
+export function AIChat() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
+  const [initialThreadId, setInitialThreadId] = useState<string | null>(null);
+
+  const projectId = useAppStore((s) => s.projectId);
+  const activeScenarioId = useAppStore((s) => s.activeScenarioId);
+  const projectName = useAppStore((s) => s.projectName);
+
+  const storageKey = getStorageKey(projectId);
+
+  useEffect(() => {
+    async function loadHistory() {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        setInitialThreadId(stored);
+        try {
+          const res = await fetch(`/api/chat?threadId=${encodeURIComponent(stored)}`);
+          if (res.ok) {
+            const data = (await res.json()) as { messages?: Array<{ uiMessage: UIMessage }> };
+            if (data.messages) {
+              setInitialMessages(data.messages.map((m) => m.uiMessage));
+            }
+          }
+        } catch {
+          // ignore — start fresh if fetch fails
+        }
+      }
+      setIsLoadingHistory(false);
+    }
+    loadHistory();
+  }, [storageKey]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setIsOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  if (!isOpen) {
+    return (
+      <button
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg hover:bg-primary/90 transition-all hover:scale-105 active:scale-95"
+        title="AI Assistant (⌘K)"
+      >
+        <Sparkles className="h-6 w-6" />
+      </button>
+    );
+  }
+
+  if (isLoadingHistory) {
+    return (
+      <>
+        <div className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+        <div className="fixed right-0 top-0 z-50 h-full w-[420px] border-l border-gray-200 bg-white shadow-2xl flex items-center justify-center">
+          <div className="flex flex-col items-center gap-2 text-gray-400">
+            <History className="h-8 w-8" />
+            <span className="text-sm">Loading conversation...</span>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <AIChatCore
+      initialMessages={initialMessages}
+      initialThreadId={initialThreadId}
+      projectId={projectId}
+      activeScenarioId={activeScenarioId}
+      projectName={projectName}
+      onClose={() => setIsOpen(false)}
+    />
   );
 }
