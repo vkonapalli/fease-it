@@ -1,0 +1,8 @@
+packages:
+  - packages/*
+
+injectWorkspacePackages: true
+
+onlyBuiltDependencies:
+  - '@tailwindcss/oxide'
+  - esbuild

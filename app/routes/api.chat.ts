@@ -3,8 +3,8 @@ import type { Route } from "./+types/api.chat";
 import { streamText, stepCountIs, convertToModelMessages, type UIMessage } from "ai";
 import { createMoonshotAI } from "@ai-sdk/moonshotai";
 import { getSupabaseServerClient } from "~/lib/supabase/server";
-import { makeService, makeSupabasePersistenceClient } from "~/lib/convo";
-import type { ToolCallRecord, ConversationTurn } from "~/lib/convo";
+import { makeService, makeSupabasePersistenceClient } from "@fease-it/convo";
+import type { ToolCallRecord, ConversationTurn } from "@fease-it/convo";
 import {
   getInputsForStrategy,
   calculateScenarioSummary,
