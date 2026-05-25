@@ -3,6 +3,10 @@
  * Returns stamp duty (land transfer duty) for a given state and purchase price.
  * Rates updated to 2024–2025 official thresholds.
  * No first-home buyer concessions are applied.
+ *
+ * Architecture: rule-based bracket system. Each state declares an ordered array of
+ * { threshold, base, rate, type } objects. A generic engine walks the brackets,
+ * eliminating the entire class of "flat vs marginal" and "missing bracket" bugs.
  */
 
 export type AustralianState =
@@ -26,167 +30,192 @@ export const AUSTRALIAN_STATES: { label: string; value: AustralianState }[] = [
   { label: "Northern Territory", value: "NT" },
 ];
 
-function roundUpToPart(value: number, part: number): number {
-  return Math.ceil(value / part) * part;
+/* ─── Bracket Types ─────────────────────────────────────────────────────── */
+
+type BracketType = "marginal" | "flat" | "per100" | "formula";
+
+interface StampDutyBracket {
+  /** Lower bound of this bracket (strict). Price must be > threshold to fall here. */
+  threshold: number;
+  /** Base duty payable at the threshold. */
+  base: number;
+  /** Rate applied either per-dollar or per-$100-unit depending on type. */
+  rate: number;
+  type: BracketType;
+  /** Minimum duty for this bracket (only NSW first bracket uses this). */
+  minDuty?: number;
+  /** Custom formula for jurisdictions with non-linear brackets (e.g. NT ≤ $525k). */
+  formula?: (price: number) => number;
 }
 
-function vicStampDuty(price: number): number {
-  if (price <= 25000) {
-    return price * 0.014;
+/* ─── Generic Calculator ───────────────────────────────────────────────── */
+
+function calculateFromRules(price: number, rules: StampDutyBracket[]): number {
+  // Find the applicable rule: the bracket with the highest threshold that is
+  // strictly less than the price. This naturally handles boundary conditions
+  // (e.g. price == $25,000 stays in the $0–$25,000 bracket).
+  let rule = rules[0];
+  for (let i = 1; i < rules.length; i++) {
+    if (price > rules[i].threshold) {
+      rule = rules[i];
+    } else {
+      break;
+    }
   }
-  if (price <= 130000) {
-    return 350 + (price - 25000) * 0.024;
+
+  let duty: number;
+  switch (rule.type) {
+    case "flat":
+      duty = price * rule.rate;
+      break;
+    case "per100":
+      duty = rule.base + Math.ceil((price - rule.threshold) / 100) * rule.rate;
+      break;
+    case "formula":
+      duty = rule.formula!(price);
+      break;
+    case "marginal":
+    default:
+      duty = rule.base + (price - rule.threshold) * rule.rate;
+      break;
   }
-  if (price <= 960000) {
-    return 2870 + (price - 130000) * 0.06;
-  }
-  if (price <= 2000000) {
-    return price * 0.055;
-  }
-  // Marginal rate: 5.5% on first $2M, 6.5% on remainder
-  return 110000 + (price - 2000000) * 0.065;
+
+  return Math.max(duty, rule.minDuty ?? 0);
 }
 
-function nswStampDuty(price: number): number {
-  if (price <= 17000) {
-    return Math.max(price * 0.0125, 20);
-  }
-  if (price <= 36000) {
-    return 212 + (price - 17000) * 0.015;
-  }
-  if (price <= 97000) {
-    return 497 + (price - 36000) * 0.0175;
-  }
-  if (price <= 364000) {
-    return 1564 + (price - 97000) * 0.035;
-  }
-  if (price <= 1212000) {
-    return 10909 + (price - 364000) * 0.045;
-  }
-  if (price <= 3636000) {
-    return 49069 + (price - 1212000) * 0.055;
-  }
-  // Premium duty for residential properties over threshold
-  return 182389 + (price - 3636000) * 0.07;
-}
+/* ─── State Bracket Tables ─────────────────────────────────────────────── */
 
-function qldStampDuty(price: number): number {
-  if (price <= 5000) {
-    return 0;
-  }
-  if (price <= 75000) {
-    return (roundUpToPart(price - 5000, 100) / 100) * 1.5;
-  }
-  if (price <= 540000) {
-    return 1050 + (roundUpToPart(price - 75000, 100) / 100) * 3.5;
-  }
-  if (price <= 1000000) {
-    return 17325 + (roundUpToPart(price - 540000, 100) / 100) * 4.5;
-  }
-  return 38025 + (roundUpToPart(price - 1000000, 100) / 100) * 5.75;
-}
+const VIC_BRACKETS: StampDutyBracket[] = [
+  // $0 – $25,000
+  { threshold: 0, base: 0, rate: 0.014, type: "marginal" },
+  // $25,001 – $130,000
+  { threshold: 25000, base: 350, rate: 0.024, type: "marginal" },
+  // $130,001 – $960,000
+  { threshold: 130000, base: 2870, rate: 0.06, type: "marginal" },
+  // $960,001 – $2,000,000  (flat 5.5% on total)
+  { threshold: 960000, base: 0, rate: 0.055, type: "flat" },
+  // > $2,000,000  (marginal: 5.5% on first $2M + 6.5% on remainder)
+  { threshold: 2000000, base: 110000, rate: 0.065, type: "marginal" },
+];
 
-function saStampDuty(price: number): number {
-  if (price <= 12000) {
-    return (roundUpToPart(price, 100) / 100) * 1.0;
-  }
-  if (price <= 30000) {
-    return 120 + (roundUpToPart(price - 12000, 100) / 100) * 2.0;
-  }
-  if (price <= 50000) {
-    return 480 + (roundUpToPart(price - 30000, 100) / 100) * 3.0;
-  }
-  if (price <= 100000) {
-    return 1080 + (roundUpToPart(price - 50000, 100) / 100) * 3.5;
-  }
-  if (price <= 200000) {
-    return 2830 + (roundUpToPart(price - 100000, 100) / 100) * 4.0;
-  }
-  if (price <= 250000) {
-    return 6830 + (roundUpToPart(price - 200000, 100) / 100) * 4.25;
-  }
-  if (price <= 300000) {
-    return 8955 + (roundUpToPart(price - 250000, 100) / 100) * 4.75;
-  }
-  if (price <= 500000) {
-    return 11330 + (roundUpToPart(price - 300000, 100) / 100) * 5.0;
-  }
-  return 21330 + (roundUpToPart(price - 500000, 100) / 100) * 5.5;
-}
+const NSW_BRACKETS: StampDutyBracket[] = [
+  // $0 – $17,000  ($1.25 per $100, minimum $20)
+  { threshold: 0, base: 0, rate: 0.0125, type: "marginal", minDuty: 20 },
+  // $17,001 – $36,000
+  { threshold: 17000, base: 212, rate: 0.015, type: "marginal" },
+  // $36,001 – $97,000
+  { threshold: 36000, base: 497, rate: 0.0175, type: "marginal" },
+  // $97,001 – $364,000
+  { threshold: 97000, base: 1564, rate: 0.035, type: "marginal" },
+  // $364,001 – $1,212,000
+  { threshold: 364000, base: 10909, rate: 0.045, type: "marginal" },
+  // $1,212,001 – $3,636,000
+  { threshold: 1212000, base: 49069, rate: 0.055, type: "marginal" },
+  // > $3,636,000  (premium duty)
+  { threshold: 3636000, base: 182389, rate: 0.07, type: "marginal" },
+];
 
-function waStampDuty(price: number): number {
-  if (price <= 120000) {
-    return (roundUpToPart(price, 100) / 100) * 1.9;
-  }
-  if (price <= 150000) {
-    return 2280 + (roundUpToPart(price - 120000, 100) / 100) * 2.85;
-  }
-  if (price <= 360000) {
-    return 3135 + (roundUpToPart(price - 150000, 100) / 100) * 3.8;
-  }
-  if (price <= 725000) {
-    return 11115 + (roundUpToPart(price - 360000, 100) / 100) * 4.75;
-  }
-  return 28453 + (roundUpToPart(price - 725000, 100) / 100) * 5.15;
-}
+const QLD_BRACKETS: StampDutyBracket[] = [
+  // $0 – $5,000
+  { threshold: 0, base: 0, rate: 0, type: "marginal" },
+  // $5,001 – $75,000
+  { threshold: 5000, base: 0, rate: 1.5, type: "per100" },
+  // $75,001 – $540,000
+  { threshold: 75000, base: 1050, rate: 3.5, type: "per100" },
+  // $540,001 – $1,000,000
+  { threshold: 540000, base: 17325, rate: 4.5, type: "per100" },
+  // > $1,000,000
+  { threshold: 1000000, base: 38025, rate: 5.75, type: "per100" },
+];
 
-function tasStampDuty(price: number): number {
-  if (price <= 3000) {
-    return 50;
-  }
-  if (price <= 25000) {
-    return 50 + (roundUpToPart(price - 3000, 100) / 100) * 1.75;
-  }
-  if (price <= 75000) {
-    return 435 + (roundUpToPart(price - 25000, 100) / 100) * 2.25;
-  }
-  if (price <= 200000) {
-    return 1560 + (roundUpToPart(price - 75000, 100) / 100) * 3.5;
-  }
-  if (price <= 375000) {
-    return 5935 + (roundUpToPart(price - 200000, 100) / 100) * 4.0;
-  }
-  if (price <= 725000) {
-    return 12935 + (roundUpToPart(price - 375000, 100) / 100) * 4.25;
-  }
-  return 27810 + (roundUpToPart(price - 725000, 100) / 100) * 4.5;
-}
+const SA_BRACKETS: StampDutyBracket[] = [
+  // $0 – $12,000
+  { threshold: 0, base: 0, rate: 1.0, type: "per100" },
+  // $12,001 – $30,000
+  { threshold: 12000, base: 120, rate: 2.0, type: "per100" },
+  // $30,001 – $50,000
+  { threshold: 30000, base: 480, rate: 3.0, type: "per100" },
+  // $50,001 – $100,000
+  { threshold: 50000, base: 1080, rate: 3.5, type: "per100" },
+  // $100,001 – $200,000
+  { threshold: 100000, base: 2830, rate: 4.0, type: "per100" },
+  // $200,001 – $250,000
+  { threshold: 200000, base: 6830, rate: 4.25, type: "per100" },
+  // $250,001 – $300,000
+  { threshold: 250000, base: 8955, rate: 4.75, type: "per100" },
+  // $300,001 – $500,000
+  { threshold: 300000, base: 11330, rate: 5.0, type: "per100" },
+  // > $500,000
+  { threshold: 500000, base: 21330, rate: 5.5, type: "per100" },
+];
 
-function actStampDuty(price: number): number {
-  if (price <= 200000) {
-    return (roundUpToPart(price, 100) / 100) * 1.2;
-  }
-  if (price <= 300000) {
-    return 2400 + (roundUpToPart(price - 200000, 100) / 100) * 2.2;
-  }
-  if (price <= 500000) {
-    return 4600 + (roundUpToPart(price - 300000, 100) / 100) * 3.4;
-  }
-  if (price <= 750000) {
-    return 11400 + (roundUpToPart(price - 500000, 100) / 100) * 4.32;
-  }
-  if (price <= 1000000) {
-    return 22200 + (roundUpToPart(price - 750000, 100) / 100) * 5.9;
-  }
-  if (price <= 1455000) {
-    return 36950 + (roundUpToPart(price - 1000000, 100) / 100) * 6.4;
-  }
-  // Flat rate of $4.54 per $100 on total value for properties > $1,455,000
-  return price * 0.0454;
-}
+const WA_BRACKETS: StampDutyBracket[] = [
+  // $0 – $120,000
+  { threshold: 0, base: 0, rate: 1.9, type: "per100" },
+  // $120,001 – $150,000
+  { threshold: 120000, base: 2280, rate: 2.85, type: "per100" },
+  // $150,001 – $360,000
+  { threshold: 150000, base: 3135, rate: 3.8, type: "per100" },
+  // $360,001 – $725,000
+  { threshold: 360000, base: 11115, rate: 4.75, type: "per100" },
+  // > $725,000
+  { threshold: 725000, base: 28453, rate: 5.15, type: "per100" },
+];
 
-function ntStampDuty(price: number): number {
-  if (price <= 525000) {
-    // Dutiable value rounded down to nearest $100
-    const rounded = Math.floor(price / 100) * 100;
-    const v = rounded / 1000;
-    return 0.06571441 * v * v + 15 * v;
-  }
-  if (price <= 3000000) {
-    return price * 0.0495;
-  }
-  return price * 0.0575;
-}
+const TAS_BRACKETS: StampDutyBracket[] = [
+  // $0 – $3,000  (flat $50)
+  { threshold: 0, base: 50, rate: 0, type: "marginal" },
+  // $3,001 – $25,000
+  { threshold: 3000, base: 50, rate: 1.75, type: "per100" },
+  // $25,001 – $75,000
+  { threshold: 25000, base: 435, rate: 2.25, type: "per100" },
+  // $75,001 – $200,000
+  { threshold: 75000, base: 1560, rate: 3.5, type: "per100" },
+  // $200,001 – $375,000
+  { threshold: 200000, base: 5935, rate: 4.0, type: "per100" },
+  // $375,001 – $725,000
+  { threshold: 375000, base: 12935, rate: 4.25, type: "per100" },
+  // > $725,000
+  { threshold: 725000, base: 27810, rate: 4.5, type: "per100" },
+];
+
+const ACT_BRACKETS: StampDutyBracket[] = [
+  // $0 – $200,000
+  { threshold: 0, base: 0, rate: 1.2, type: "per100" },
+  // $200,001 – $300,000
+  { threshold: 200000, base: 2400, rate: 2.2, type: "per100" },
+  // $300,001 – $500,000
+  { threshold: 300000, base: 4600, rate: 3.4, type: "per100" },
+  // $500,001 – $750,000
+  { threshold: 500000, base: 11400, rate: 4.32, type: "per100" },
+  // $750,001 – $1,000,000
+  { threshold: 750000, base: 22200, rate: 5.9, type: "per100" },
+  // $1,000,001 – $1,455,000
+  { threshold: 1000000, base: 36950, rate: 6.4, type: "per100" },
+  // > $1,455,000  (flat $4.54 per $100 on total)
+  { threshold: 1455000, base: 0, rate: 0.0454, type: "flat" },
+];
+
+const NT_BRACKETS: StampDutyBracket[] = [
+  // $0 – $525,000  (non-linear formula)
+  {
+    threshold: 0,
+    base: 0,
+    rate: 0,
+    type: "formula",
+    formula: (price: number) => {
+      const rounded = Math.floor(price / 100) * 100;
+      const v = rounded / 1000;
+      return 0.06571441 * v * v + 15 * v;
+    },
+  },
+  // $525,001 – $3,000,000
+  { threshold: 525000, base: 0, rate: 0.0495, type: "flat" },
+  // > $3,000,000
+  { threshold: 3000000, base: 0, rate: 0.0575, type: "flat" },
+];
+
+/* ─── Public API ──────────────────────────────────────────────────────── */
 
 export function calculateStampDuty(
   state: string,
@@ -195,21 +224,21 @@ export function calculateStampDuty(
   const price = Math.max(0, purchasePrice);
   switch (state.toUpperCase()) {
     case "VIC":
-      return vicStampDuty(price);
+      return calculateFromRules(price, VIC_BRACKETS);
     case "NSW":
-      return nswStampDuty(price);
+      return calculateFromRules(price, NSW_BRACKETS);
     case "QLD":
-      return qldStampDuty(price);
+      return calculateFromRules(price, QLD_BRACKETS);
     case "SA":
-      return saStampDuty(price);
+      return calculateFromRules(price, SA_BRACKETS);
     case "WA":
-      return waStampDuty(price);
+      return calculateFromRules(price, WA_BRACKETS);
     case "TAS":
-      return tasStampDuty(price);
+      return calculateFromRules(price, TAS_BRACKETS);
     case "ACT":
-      return actStampDuty(price);
+      return calculateFromRules(price, ACT_BRACKETS);
     case "NT":
-      return ntStampDuty(price);
+      return calculateFromRules(price, NT_BRACKETS);
     default:
       return 0;
   }
