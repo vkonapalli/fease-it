@@ -1,118 +1,179 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useState } from "react";
+import { Form, Link, redirect, useFetcher, useLoaderData, useNavigate } from "react-router";
+import type { Route } from "./+types/projects";
 import { Plus, FolderOpen, Trash2, Loader2 } from "lucide-react";
 import { Button } from "~/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
 import { CreateProjectDialog } from "~/components/inputs/CreateProjectDialog";
-import { getCurrentUser, isSupabaseConfigured } from "~/services/authService";
-import { getProjects, deleteProject } from "~/services/projectService";
-import type { Project } from "~/services/projectService";
+import { getSupabaseServerClient } from "~/lib/supabase/server";
+import { requireAuth } from "~/lib/auth.server";
+import { isSupabaseConfigured } from "~/lib/supabase/client";
 import { useAppStore } from "~/stores/appStore";
 
+export interface Project {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function loader({ request }: Route.LoaderArgs) {
+  if (!isSupabaseConfigured()) {
+    return { projects: [], localOnly: true };
+  }
+
+  const { user, supabase, headers } = await requireAuth(request);
+  if (!user || !supabase) {
+    return redirect("/login", { headers });
+  }
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Response(error.message, { status: 500 });
+  }
+
+  return { projects: (data ?? []) as Project[], localOnly: false };
+}
+
+export async function action({ request }: Route.ActionArgs) {
+  const formData = await request.formData();
+  const intent = formData.get("intent") as string;
+
+  if (!isSupabaseConfigured()) {
+    return { ok: true, localOnly: true };
+  }
+
+  const { user, supabase, headers } = await requireAuth(request);
+  if (!user || !supabase) {
+    return redirect("/login", { headers });
+  }
+
+  if (intent === "delete") {
+    const id = formData.get("id") as string;
+    const { error } = await supabase.from("projects").delete().eq("id", id).eq("user_id", user.id);
+    if (error) {
+      return { error: error.message };
+    }
+    return { ok: true };
+  }
+
+  return { error: "Unknown intent." };
+}
+
 export default function ProjectsPage() {
+  const { projects: initialProjects, localOnly } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const setProject = useAppStore((s) => s.setProject);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const fetcher = useFetcher<typeof action>();
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  useEffect(() => {
-    async function init() {
-      try {
-        if (!isSupabaseConfigured()) {
-          setLoading(false);
-          return;
-        }
-        const user = await getCurrentUser();
-        if (!user) {
-          navigate("/login");
-          return;
-        }
-        const data = await getProjects();
-        setProjects(data);
-      } catch (err) {
-        console.warn("Supabase not configured or init failed:", err);
-        navigate("/login");
-      } finally {
-        setLoading(false);
-      }
-    }
-    init();
-  }, [navigate]);
-
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this project and all its scenarios?")) return;
-    try {
-      await deleteProject(id);
-      setProjects((prev) => prev.filter((p) => p.id !== id));
-    } catch (err) {
-      console.error("Failed to delete project:", err);
-    }
-  }
+  // Optimistically remove deleted projects from UI
+  const isDeleting = fetcher.state === "submitting" && fetcher.formData?.get("intent") === "delete";
+  const deletingId = isDeleting ? (fetcher.formData?.get("id") as string) : null;
+  const projects = deletingId
+    ? initialProjects.filter((p) => p.id !== deletingId)
+    : initialProjects;
 
   function handleOpen(project: Project) {
     setProject(project.id, project.name);
     navigate(`/projects/${project.id}`);
   }
 
-  if (loading) {
+  if (localOnly && projects.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+      <main className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-8">
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-1" />
             Create Project
           </Button>
         </div>
+        <div className="text-center py-16">
+          <FolderOpen className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+          <h3 className="text-lg font-medium text-gray-700">No projects yet</h3>
+          <p className="text-sm text-gray-500 mt-1">Create your first feasibility project.</p>
+        </div>
+        <CreateProjectDialog
+          isOpen={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+          onCreated={(project) => {
+            // In local-only mode, the dialog handles all state
+            navigate(`/projects/${project.id}`);
+          }}
+        />
+      </main>
+    );
+  }
 
-        {projects.length === 0 ? (
-          <div className="text-center py-16">
-            <FolderOpen className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-700">No projects yet</h3>
-            <p className="text-sm text-gray-500 mt-1">Create your first feasibility project.</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
-              <Card key={project.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">{project.name}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-xs text-gray-500 mb-4">
-                    Created {new Date(project.created_at).toLocaleDateString("en-AU")}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button size="sm" className="flex-1" onClick={() => handleOpen(project)}>
-                      <FolderOpen className="h-4 w-4 mr-1" />
-                      Open
-                    </Button>
+  return (
+    <main className="mx-auto max-w-5xl px-4 py-8">
+      <div className="mb-8">
+        <Button onClick={() => setDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" />
+          Create Project
+        </Button>
+      </div>
+
+      {projects.length === 0 ? (
+        <div className="text-center py-16">
+          <FolderOpen className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+          <h3 className="text-lg font-medium text-gray-700">No projects yet</h3>
+          <p className="text-sm text-gray-500 mt-1">Create your first feasibility project.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {projects.map((project) => (
+            <Card key={project.id} className="cursor-pointer hover:shadow-md transition-shadow">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">{project.name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-gray-500 mb-4">
+                  Created {new Date(project.created_at).toLocaleDateString("en-AU")}
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1" onClick={() => handleOpen(project)}>
+                    <FolderOpen className="h-4 w-4 mr-1" />
+                    Open
+                  </Button>
+                  <fetcher.Form method="post" className="inline">
+                    <input type="hidden" name="intent" value="delete" />
+                    <input type="hidden" name="id" value={project.id} />
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => handleDelete(project.id)}
+                      type="submit"
                       className="text-error hover:bg-red-50"
+                      disabled={isDeleting && deletingId === project.id}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {isDeleting && deletingId === project.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                     </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                  </fetcher.Form>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <CreateProjectDialog
         isOpen={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        onCreated={(project) => setProjects((prev) => [project, ...prev])}
+        onCreated={(project) => {
+          // After server-side creation, navigate to the new project
+          setProject(project.id, project.name);
+          navigate(`/projects/${project.id}`);
+        }}
       />
     </main>
   );

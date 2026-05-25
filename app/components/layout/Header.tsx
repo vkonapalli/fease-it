@@ -5,8 +5,13 @@ import { exportAllScenariosToCSV } from "~/lib/export";
 import { calculateFeasibility } from "~/lib/calculations";
 import { Link, useNavigate } from "react-router";
 import { signOut } from "~/services/authService";
+import type { User } from "@supabase/supabase-js";
 
-export function Header() {
+interface HeaderProps {
+  user: User | null;
+}
+
+export function Header({ user }: HeaderProps) {
   const projectName = useAppStore((s) => s.projectName);
   const activeScenario = useAppStore((s) => s.getActiveScenario());
   const navigate = useNavigate();
@@ -48,9 +53,11 @@ export function Header() {
           <Button variant="secondary" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-1" /> Export
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-error hover:bg-red-50">
-            <LogOut className="h-4 w-4 mr-1" /> Sign out
-          </Button>
+          {user && (
+            <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-error hover:bg-red-50">
+              <LogOut className="h-4 w-4 mr-1" /> Sign out
+            </Button>
+          )}
         </div>
       </div>
     </header>

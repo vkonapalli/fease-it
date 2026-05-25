@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useFetcher, useLoaderData, redirect } from "react-router";
+import type { Route } from "./+types/project-detail";
 import { PropertyInputs } from "~/components/inputs/PropertyInputs";
 import { TimelineInputs } from "~/components/inputs/TimelineInputs";
 import { DevelopmentStrategyInputs } from "~/components/inputs/DevelopmentStrategyInputs";
@@ -28,8 +29,14 @@ import { ScenarioComparison } from "~/components/results/ScenarioComparison";
 import { DeficitCard } from "~/components/results/DeficitCard";
 import { useAppStore } from "~/stores/appStore";
 import { calculateFeasibility } from "~/lib/calculations";
-import { getScenarios, getProject, createScenario, updateScenario, deleteScenario } from "~/services/projectService";
-import { getCurrentUser, isSupabaseConfigured } from "~/services/authService";
+import {
+  createScenario as createScenarioRemote,
+  updateScenario as updateScenarioRemote,
+  deleteScenario as deleteScenarioRemote,
+} from "~/services/projectService";
+import { isSupabaseConfigured } from "~/services/authService";
+import { getSupabaseServerClient } from "~/lib/supabase/server";
+import { requireAuth } from "~/lib/auth.server";
 import type { Scenario as AppScenario } from "~/stores/appStore";
 import { Plus, Loader2, Copy } from "lucide-react";
 import { Button } from "~/components/ui/Button";
@@ -41,9 +48,88 @@ function parseScenarioFromSplat(splat: string | undefined): string | undefined {
   return match ? match[1] : undefined;
 }
 
+interface LoaderData {
+  project: { id: string; name: string } | null;
+  scenarios: AppScenario[];
+  localOnly: boolean;
+}
+
+export async function loader({ request, params }: Route.LoaderArgs) {
+  const projectId = params.projectId;
+  if (!projectId) throw redirect("/projects");
+
+  if (!isSupabaseConfigured()) {
+    return { project: null, scenarios: [], localOnly: true } as LoaderData;
+  }
+
+  const { user, supabase, headers } = await requireAuth(request);
+  if (!user || !supabase) {
+    throw redirect("/login", { headers });
+  }
+
+  const [{ data: project }, { data: scenarios }] = await Promise.all([
+    supabase.from("projects").select("id, name").eq("id", projectId).eq("user_id", user.id).single(),
+    supabase
+      .from("scenarios")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("sort_order", { ascending: true }),
+  ]);
+
+  if (!project) {
+    throw redirect("/projects");
+  }
+
+  return {
+    project,
+    scenarios: (scenarios ?? []).map((s: Record<string, unknown>) => ({
+      id: s.id as string,
+      name: s.name as string,
+      inputs: s.inputs as AppScenario["inputs"],
+      sortOrder: s.sort_order as number,
+      synced: true,
+      remoteId: s.id as string,
+    })),
+    localOnly: false,
+  } as LoaderData;
+}
+
+export async function action({ request, params }: Route.ActionArgs) {
+  const projectId = params.projectId;
+  const formData = await request.formData();
+  const intent = formData.get("intent") as string;
+
+  if (!isSupabaseConfigured()) {
+    return { ok: true };
+  }
+
+  const { user, supabase, headers } = await requireAuth(request);
+  if (!user || !supabase) {
+    throw redirect("/login", { headers });
+  }
+
+  if (intent === "delete-scenario") {
+    const id = formData.get("id") as string;
+    const { error } = await supabase
+      .from("scenarios")
+      .delete()
+      .eq("id", id)
+      .eq("project_id", projectId);
+    if (error) {
+      return { error: error.message };
+    }
+    return { ok: true };
+  }
+
+  return null;
+}
+
 export default function ProjectDetail() {
   const { projectId, "*": splat } = useParams();
+  const { project, scenarios: initialScenarios, localOnly } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
+  const fetcher = useFetcher<typeof action>();
+
   const setProject = useAppStore((s) => s.setProject);
   const projectName = useAppStore((s) => s.projectName);
   const storeProjectId = useAppStore((s) => s.projectId);
@@ -55,7 +141,7 @@ export default function ProjectDetail() {
   const removeScenario = useAppStore((s) => s.removeScenario);
   const updateScenarioLocal = useAppStore((s) => s.updateScenario);
   const duplicateScenarioWithOptions = useAppStore((s) => s.duplicateScenarioWithOptions);
-  const [loading, setLoading] = useState(true);
+
   const [saving, setSaving] = useState(false);
   const [copyDialogId, setCopyDialogId] = useState<string | null>(null);
   const scenarioFromUrl = parseScenarioFromSplat(splat);
@@ -65,76 +151,21 @@ export default function ProjectDetail() {
     (sid: string) => {
       navigate(`/projects/${projectId}/scenarios/${sid}`, { replace: true });
     },
-    [projectId, navigate],
+    [projectId, navigate]
   );
 
-  // Auth guard: redirect if not authenticated
+  // Hydrate Zustand from server data on mount / when project changes
   useEffect(() => {
-    if (!projectId) return;
-    async function guard() {
-      try {
-        if (isSupabaseConfigured()) {
-          const user = await getCurrentUser();
-          if (!user) {
-            navigate("/login");
-            return;
-          }
-        }
-      } catch {
-        navigate("/login");
-      }
+    if (project) {
+      setProject(project.id, project.name);
     }
-    guard();
-  }, [projectId, navigate]);
-
-  // Sync project from URL to store (fetch name if needed)
-  useEffect(() => {
-    if (!projectId) return;
-    if (storeProjectId === projectId) return;
-
-    async function sync() {
-      try {
-        const project = await getProject(projectId!);
-        if (!project) {
-          navigate("/projects");
-          return;
-        }
-        setProject(project.id, project.name);
-      } catch {
-        navigate("/projects");
-      }
+    if (initialScenarios.length > 0) {
+      setScenarios(initialScenarios);
+    } else if (localOnly && scenarios.length === 0) {
+      // Local-only mode with no server data: ensure at least one default scenario exists
+      // (Zustand store already has a default, so this is a no-op in practice)
     }
-    sync();
-  }, [projectId, storeProjectId, setProject, navigate]);
-
-  // Load scenarios from Supabase
-  useEffect(() => {
-    if (!projectId) return;
-    const pid = projectId;
-
-    async function load() {
-      try {
-        const remoteScenarios = await getScenarios(pid);
-        if (remoteScenarios.length > 0) {
-          const mapped: AppScenario[] = remoteScenarios.map((rs) => ({
-            id: rs.id,
-            name: rs.name,
-            inputs: rs.inputs,
-            sortOrder: rs.sort_order,
-            synced: true,
-            remoteId: rs.id,
-          }));
-          setScenarios(mapped);
-        }
-      } catch (err) {
-        console.error("Failed to load scenarios:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    load();
-  }, [projectId, setScenarios]);
+  }, [project, initialScenarios, localOnly, setProject, setScenarios, scenarios.length]);
 
   // Select scenario from URL or default to first
   useEffect(() => {
@@ -144,12 +175,10 @@ export default function ProjectDetail() {
       if (found) {
         setActiveScenario(scenarioFromUrl);
       } else {
-        // Scenario not found, fall back to first and update URL
         setActiveScenario(scenarios[0].id);
         handleNavigateScenario(scenarios[0].id);
       }
     } else if (!initialised.current) {
-      // Initial load without scenario in URL — default to first
       setActiveScenario(scenarios[0].id);
       handleNavigateScenario(scenarios[0].id);
     }
@@ -158,7 +187,7 @@ export default function ProjectDetail() {
 
   // Auto-save scenarios to Supabase (debounced)
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId || localOnly) return;
 
     const timeout = setTimeout(async () => {
       const unsynced = scenarios.filter((s) => !s.synced);
@@ -168,18 +197,16 @@ export default function ProjectDetail() {
       try {
         for (const s of unsynced) {
           if (s.remoteId) {
-            await updateScenario(s.remoteId, {
+            await updateScenarioRemote(s.remoteId, {
               name: s.name,
               inputs: s.inputs,
             });
           } else {
-            const created = await createScenario(projectId, s.name, s.inputs, s.sortOrder);
+            const created = await createScenarioRemote(projectId, s.name, s.inputs, s.sortOrder);
             updateScenarioLocal(s.id, { remoteId: created.id, synced: true });
           }
         }
-        setScenarios(
-          scenarios.map((s) => ({ ...s, synced: true }))
-        );
+        setScenarios(scenarios.map((s) => ({ ...s, synced: true })));
       } catch (err) {
         console.error("Auto-save failed:", err);
       } finally {
@@ -188,7 +215,7 @@ export default function ProjectDetail() {
     }, 2000);
 
     return () => clearTimeout(timeout);
-  }, [scenarios, projectId, setScenarios, updateScenarioLocal]);
+  }, [scenarios, projectId, localOnly, setScenarios, updateScenarioLocal]);
 
   const activeScenario = useMemo(
     () => scenarios.find((s) => s.id === activeScenarioId) ?? scenarios[0] ?? null,
@@ -205,7 +232,7 @@ export default function ProjectDetail() {
   const isSDA = inputs?.scenario === "sda-hold";
   const activeResult = results?.scenarios.find((s) => s.scenario === results.activeScenario);
 
-  async function handleAddScenario() {
+  function handleAddScenario() {
     if (!projectId) return;
     if (scenarios.length >= 20) {
       alert("Maximum 20 scenarios allowed.");
@@ -231,9 +258,9 @@ export default function ProjectDetail() {
       return;
     }
     const scenario = scenarios.find((s) => s.id === id);
-    if (scenario?.remoteId) {
+    if (scenario?.remoteId && !localOnly) {
       try {
-        await deleteScenario(scenario.remoteId);
+        await deleteScenarioRemote(scenario.remoteId);
       } catch (err) {
         console.error("Failed to delete remote scenario:", err);
       }
@@ -241,7 +268,7 @@ export default function ProjectDetail() {
     removeScenario(id);
   }
 
-  async function handleRenameScenario(id: string, name: string) {
+  function handleRenameScenario(id: string, name: string) {
     updateScenarioLocal(id, { name });
   }
 
@@ -250,27 +277,28 @@ export default function ProjectDetail() {
     handleNavigateScenario(id);
   }
 
-  function handleCopyScenario(id: string, name: string, options: Parameters<typeof duplicateScenarioWithOptions>[2]) {
+  function handleCopyScenario(
+    id: string,
+    name: string,
+    options: Parameters<typeof duplicateScenarioWithOptions>[2]
+  ) {
     duplicateScenarioWithOptions(id, name, options);
     setCopyDialogId(null);
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // Optimistic delete state from fetcher
+  const isDeleting = fetcher.state === "submitting" && fetcher.formData?.get("intent") === "delete-scenario";
+  const deletingId = isDeleting ? (fetcher.formData?.get("id") as string) : null;
+  const displayScenarios = deletingId ? scenarios.filter((s) => s.id !== deletingId) : scenarios;
 
-  const copySource = copyDialogId ? scenarios.find((s) => s.id === copyDialogId) ?? null : null;
+  const copySource = copyDialogId ? displayScenarios.find((s) => s.id === copyDialogId) ?? null : null;
 
   return (
     <>
       {/* Scenario Tabs */}
       <div className="bg-white border-b border-gray-200">
         <div className="mx-auto max-w-7xl px-4 py-2 flex items-center gap-2 overflow-x-auto">
-          {scenarios.map((s) => (
+          {displayScenarios.map((s) => (
             <div
               key={s.id}
               className={`group flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${
@@ -303,7 +331,7 @@ export default function ProjectDetail() {
               >
                 <Copy className="h-3 w-3" />
               </button>
-              {scenarios.length > 1 && (
+              {displayScenarios.length > 1 && (
                 <button
                   className="ml-1 text-xs opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
                   onClick={(e) => {
