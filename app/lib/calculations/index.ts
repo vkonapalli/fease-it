@@ -10,6 +10,7 @@ import type {
 } from "~/types";
 import { calculateProfit } from "./profit";
 import { calculateLoan } from "./financing";
+import { calculateLandTax } from "~/lib/constants/landTax";
 
 const SCENARIOS: ProjectScenario[] = [
   "sell-all",
@@ -78,7 +79,17 @@ export function calculateScenario(
   const sensitivity = calculateScenarioSensitivity(inputs, scenario);
 
   // Cashflow
-  const cashflow = generateCashflow(inputs.cashflow, profitResult, inputs.financing.interestRate);
+  const cashflow = generateCashflow(
+    inputs.cashflow,
+    profitResult,
+    inputs.financing.interestRate,
+    inputs.development.timeline.settlementDate || inputs.cashflow.startDate,
+    inputs.development.timeline.timelineMonths,
+    inputs.property.location,
+    inputs.property.landValue || inputs.property.purchasePrice,
+    inputs.property.landTaxAuto,
+    inputs.property.landTaxOverride
+  );
 
   return {
     scenario,
@@ -256,7 +267,13 @@ function calculateScenarioSensitivity(
 function generateCashflow(
   config: CashflowConfig,
   profitResult: ReturnType<typeof calculateProfit>,
-  interestRate: number
+  interestRate: number,
+  settlementDate: string,
+  timelineMonths: number,
+  location: string,
+  landValue: number,
+  landTaxAuto: boolean,
+  landTaxOverride?: number
 ): CashflowRow[] {
   const rows: CashflowRow[] = [];
   let cumulative = 0;
@@ -303,6 +320,27 @@ function generateCashflow(
       if (interest > 0) {
         expenses += interest;
         expenseItems.push({ name: "Interest Payment", amount: interest });
+      }
+
+      // Add land tax for December months within ownership window
+      if (settlementDate && timelineMonths > 0) {
+        const settlement = new Date(settlementDate);
+        const end = new Date(settlement);
+        end.setMonth(end.getMonth() + timelineMonths);
+
+        if (periodDate.getMonth() === 11) { // December
+          const decYear = periodDate.getFullYear();
+          const dec31 = new Date(decYear, 11, 31);
+          if (dec31 >= settlement && dec31 <= end) {
+            const annualLandTax = landTaxAuto
+              ? calculateLandTax(location, landValue || 0, false)
+              : (landTaxOverride ?? 0);
+            if (annualLandTax > 0) {
+              expenses += annualLandTax;
+              expenseItems.push({ name: `Land Tax ${decYear}`, amount: annualLandTax });
+            }
+          }
+        }
       }
 
       const net = income - expenses;

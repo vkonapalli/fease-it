@@ -53,6 +53,10 @@ export interface AcquisitionInputs {
   postcode: string;
   // Configurable line items instead of hardcoded values
   costs: AcquisitionCostItem[];
+  // Land tax configuration
+  landTaxAuto: boolean;       // true = auto-calculate from state brackets
+  landTaxOverride?: number;   // user-editable annual amount (when auto=false)
+  landValue: number;          // unimproved land value for land tax calc (defaults to purchasePrice)
 }
 
 // --- Development Costs (fully configurable) ---
@@ -364,6 +368,7 @@ export interface CostBreakdown {
   financing: number;
   marketing: number;
   holding: number;
+  landTax: number;
   contingency: number;
   salesCommission: number;
   total: number;

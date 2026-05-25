@@ -17,6 +17,7 @@ import type {
 import { calculateGST, calculateGSTForLot } from "./gst";
 import { calculateLoan } from "./financing";
 import { calculateStampDuty } from "./stampDuty";
+import { calculateProjectLandTax } from "~/lib/constants/landTax";
 
 /**
  * Calculate sale price for a lot based on the development strategy pricing model.
@@ -374,6 +375,17 @@ export function calculateProfit({
         return sum + (c.applyPerLot ? amt * development.numDwellings : amt);
       }, 0);
 
+  // --- Land Tax ---
+  const landTaxResult = calculateProjectLandTax(
+    property.location,
+    property.landValue || property.purchasePrice,
+    development.timeline.settlementDate,
+    development.timeline.timelineMonths,
+    property.landTaxAuto,
+    property.landTaxOverride,
+    false
+  );
+
   // --- Total Costs ---
   const costBreakdown: CostBreakdown = {
     acquisition: acquisition.total,
@@ -385,6 +397,7 @@ export function calculateProfit({
     financing: loanCalc.totalFees + loanCalc.totalInterestOverTerm,
     marketing: marketingCost,
     holding: holdingCost,
+    landTax: landTaxResult.total,
     contingency: devCosts.contingency,
     salesCommission,
     total: 0,
@@ -397,6 +410,7 @@ export function calculateProfit({
     costBreakdown.financing +
     costBreakdown.marketing +
     costBreakdown.holding +
+    costBreakdown.landTax +
     costBreakdown.contingency +
     costBreakdown.salesCommission;
 

@@ -66,6 +66,7 @@ export function exportScenarioToCSV(scenario: ScenarioResult, projectName: strin
     ["Financing", scenario.costBreakdown.financing],
     ["Marketing", scenario.costBreakdown.marketing],
     ["Holding", scenario.costBreakdown.holding],
+    ["Land Tax", scenario.costBreakdown.landTax],
     ["Contingency", scenario.costBreakdown.contingency],
     ["Total", scenario.costBreakdown.total],
   ];

@@ -3,7 +3,7 @@ import { NumberField } from "~/components/ui/NumberField";
 import { useAppStore } from "~/stores/appStore";
 import { useShallow } from "zustand/react/shallow";
 import { useMemo } from "react";
-import { calculateLandTax } from "~/lib/constants/landTax";
+import { calculateLandTax, countLandTaxPayments } from "~/lib/constants/landTax";
 import { formatCurrency } from "~/lib/calculations/stampDuty";
 
 export function TimelineInputs() {
@@ -14,13 +14,15 @@ export function TimelineInputs() {
 
   // Auto-calculate land tax
   const annualLandTax = useMemo(() => {
-    if (!property.location || !property.purchasePrice) return 0;
-    return calculateLandTax(property.location, property.purchasePrice, false);
-  }, [property.location, property.purchasePrice]);
+    if (!property.location || !property.landValue) return 0;
+    return calculateLandTax(property.location, property.landValue, false);
+  }, [property.location, property.landValue]);
+
+  const landTaxPayments = countLandTaxPayments(timeline.settlementDate, timeline.timelineMonths);
 
   const totalLandTax = useMemo(() => {
-    return annualLandTax * (timeline.timelineMonths / 12);
-  }, [annualLandTax, timeline.timelineMonths]);
+    return annualLandTax * landTaxPayments;
+  }, [annualLandTax, landTaxPayments]);
 
   const updateTimeline = (updates: Partial<typeof timeline>) => {
     updateActiveInputs({
@@ -74,10 +76,10 @@ export function TimelineInputs() {
               </span>
             </div>
             <p className="text-xs text-blue-700">
-              {formatCurrency(annualLandTax)} / year × {timeline.timelineMonths} months
+              {formatCurrency(annualLandTax)} / year × {landTaxPayments} payment{landTaxPayments !== 1 ? 's' : ''}
             </p>
             <p className="text-xs text-blue-600">
-              Based on {property.location} rates for land value of {formatCurrency(property.purchasePrice)}.
+              Based on {property.location} rates for land value of {formatCurrency(property.landValue)}.
             </p>
           </div>
         )}

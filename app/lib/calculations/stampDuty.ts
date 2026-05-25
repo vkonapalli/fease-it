@@ -1,8 +1,8 @@
 /**
  * Australian Stamp Duty Calculator
  * Returns stamp duty (land transfer duty) for a given state and purchase price.
- * Rates are approximate and based on standard residential/investment property
- * duty as of 2024–2025. No first-home buyer concessions are applied.
+ * Rates updated to 2024–2025 official thresholds.
+ * No first-home buyer concessions are applied.
  */
 
 export type AustralianState =
@@ -48,25 +48,26 @@ function vicStampDuty(price: number): number {
 }
 
 function nswStampDuty(price: number): number {
-  if (price <= 16000) {
-    return price * 0.0125;
+  if (price <= 17000) {
+    return Math.max(price * 0.0125, 20);
   }
-  if (price <= 35000) {
-    return 200 + (price - 16000) * 0.015;
+  if (price <= 36000) {
+    return 212 + (price - 17000) * 0.015;
   }
-  if (price <= 93000) {
-    return 485 + (price - 35000) * 0.0175;
+  if (price <= 97000) {
+    return 497 + (price - 36000) * 0.0175;
   }
-  if (price <= 351000) {
-    return 1500 + (price - 93000) * 0.035;
+  if (price <= 364000) {
+    return 1564 + (price - 97000) * 0.035;
   }
-  if (price <= 1168000) {
-    return 10530 + (price - 351000) * 0.045;
+  if (price <= 1212000) {
+    return 10909 + (price - 364000) * 0.045;
   }
-  if (price <= 3505000) {
-    return 47295 + (price - 1168000) * 0.055;
+  if (price <= 3636000) {
+    return 49069 + (price - 1212000) * 0.055;
   }
-  return 175695 + (price - 3505000) * 0.07;
+  // Premium duty for residential properties over threshold
+  return 182389 + (price - 3636000) * 0.07;
 }
 
 function qldStampDuty(price: number): number {
@@ -101,10 +102,16 @@ function saStampDuty(price: number): number {
   if (price <= 200000) {
     return 2830 + (roundUpToPart(price - 100000, 100) / 100) * 4.0;
   }
-  if (price <= 500000) {
-    return 6830 + (roundUpToPart(price - 200000, 100) / 100) * 4.5;
+  if (price <= 250000) {
+    return 6830 + (roundUpToPart(price - 200000, 100) / 100) * 4.25;
   }
-  return 20330 + (roundUpToPart(price - 500000, 100) / 100) * 5.5;
+  if (price <= 300000) {
+    return 8955 + (roundUpToPart(price - 250000, 100) / 100) * 4.75;
+  }
+  if (price <= 500000) {
+    return 11330 + (roundUpToPart(price - 300000, 100) / 100) * 5.0;
+  }
+  return 21330 + (roundUpToPart(price - 500000, 100) / 100) * 5.5;
 }
 
 function waStampDuty(price: number): number {
@@ -164,7 +171,8 @@ function actStampDuty(price: number): number {
   if (price <= 1455000) {
     return 36950 + (roundUpToPart(price - 1000000, 100) / 100) * 6.4;
   }
-  return 66040 + (roundUpToPart(price - 1455000, 100) / 100) * 6.4;
+  // Flat rate of $4.54 per $100 on total value for properties > $1,455,000
+  return price * 0.0454;
 }
 
 function ntStampDuty(price: number): number {
@@ -172,7 +180,7 @@ function ntStampDuty(price: number): number {
     // Dutiable value rounded down to nearest $100
     const rounded = Math.floor(price / 100) * 100;
     const v = rounded / 1000;
-    return (0.06571441 * v * v + 15 * v) / 1000;
+    return 0.06571441 * v * v + 15 * v;
   }
   if (price <= 3000000) {
     return price * 0.0495;

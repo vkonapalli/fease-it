@@ -21,6 +21,8 @@ export function createBaseInputs(): FeasibilityInputs {
         { id: "closing-costs", name: "Closing Costs & Settlement", amount: 3000, isPercentage: false, gstTreatment: "inclusive" },
         { id: "due-diligence", name: "Due Diligence", amount: 5000, isPercentage: false, gstTreatment: "inclusive" },
       ],
+      landTaxAuto: true,
+      landValue: 1000000,
     },
     development: {
       numDwellings: 2,

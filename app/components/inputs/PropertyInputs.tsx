@@ -9,8 +9,8 @@ import { AddressAutocomplete } from "~/components/inputs/AddressAutocomplete";
 import { useAppStore } from "~/stores/appStore";
 import { useShallow } from "zustand/react/shallow";
 import { calculateStampDuty, AUSTRALIAN_STATES, formatCurrency } from "~/lib/calculations/stampDuty";
-import { calculateLandTax } from "~/lib/constants/landTax";
-import { Plus, Trash2 } from "lucide-react";
+import { calculateLandTax, countLandTaxPayments, calculateProjectLandTax } from "~/lib/constants/landTax";
+import { Plus, Trash2, Info } from "lucide-react";
 
 export function PropertyInputs() {
   const property = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.property));
@@ -23,12 +23,14 @@ export function PropertyInputs() {
   );
 
   const landTaxAnnual = useMemo(() => {
-    if (!property!.location || !property!.purchasePrice) return 0;
-    return calculateLandTax(property!.location, property!.purchasePrice, false);
-  }, [property!.location, property!.purchasePrice]);
+    if (!property!.location || !property!.landValue) return 0;
+    return calculateLandTax(property!.location, property!.landValue, false);
+  }, [property!.location, property!.landValue]);
 
   const timelineMonths = development?.timeline?.timelineMonths ?? 12;
-  const landTaxTotal = landTaxAnnual * (timelineMonths / 12);
+  const settlementDate = development?.timeline?.settlementDate;
+  const landTaxPayments = countLandTaxPayments(settlementDate ?? "", timelineMonths);
+  const landTaxTotal = landTaxAnnual * landTaxPayments;
 
   // Filter out any legacy stamp-duty or land-tax line items from the editable list
   const editableCosts = property.costs.filter((c) => {
@@ -153,6 +155,27 @@ export function PropertyInputs() {
           prefix="$"
           min={0}
         />
+
+        {/* Land Value with tooltip */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-1">
+            <NumberField
+              label="Unimproved Land Value"
+              value={property.landValue}
+              onChange={(value) => updateActiveInputs({ property: { ...property, landValue: value } })}
+              prefix="$"
+              min={0}
+            />
+            <div className="group relative">
+              <Info className="h-4 w-4 text-gray-400 cursor-help" />
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-56 p-2 bg-gray-800 text-white text-xs rounded-lg shadow-lg z-10">
+                Site value used for land tax calculations. Often less than the full purchase price (which includes improvements).
+                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800" />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <NumberField
           label="Total Land Area"
           value={property.landArea}
@@ -172,18 +195,43 @@ export function PropertyInputs() {
           </p>
         </div>
 
-        {/* Auto-calculated Land Tax */}
-        {landTaxAnnual > 0 && (
-          <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-blue-900">Land Tax (auto)</span>
-              <span className="text-sm font-semibold text-blue-900">{formatCurrency(landTaxTotal)}</span>
-            </div>
-            <p className="text-xs text-blue-700 mt-1">
-              {formatCurrency(landTaxAnnual)} / year × {timelineMonths} months
-            </p>
-          </div>
+        {/* Land Tax Toggle */}
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="land-tax-auto"
+            checked={property.landTaxAuto}
+            onChange={(e) => updateActiveInputs({ property: { ...property, landTaxAuto: e.target.checked } })}
+            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-accent"
+          />
+          <label htmlFor="land-tax-auto" className="text-sm text-gray-700">
+            Auto-calculate land tax from {property.location} rates
+          </label>
+        </div>
+
+        {!property.landTaxAuto && (
+          <NumberField
+            label="Custom Annual Land Tax"
+            value={property.landTaxOverride ?? 0}
+            onChange={(value) => updateActiveInputs({ property: { ...property, landTaxOverride: value } })}
+            prefix="$"
+            min={0}
+          />
         )}
+
+        {/* Auto-calculated Land Tax */}
+        <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-blue-900">Estimated Land Tax</span>
+            <span className="text-sm font-semibold text-blue-900">{formatCurrency(landTaxTotal)}</span>
+          </div>
+          <p className="text-xs text-blue-700">
+            {formatCurrency(landTaxAnnual)} / year × {landTaxPayments} payment{landTaxPayments !== 1 ? 's' : ''}
+          </p>
+          <p className="text-xs text-blue-600">
+            Based on {property.location} rates for land value of {formatCurrency(property.landValue)}.
+          </p>
+        </div>
 
         <div className="border-t border-gray-200 pt-4">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Acquisition Costs</h4>
