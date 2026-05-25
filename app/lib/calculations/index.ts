@@ -84,6 +84,7 @@ export function calculateScenario(
     profitResult,
     inputs.financing.interestRate,
     inputs.development.timeline.settlementDate || inputs.cashflow.startDate,
+    inputs.development.timeline.contractDate,
     inputs.development.timeline.timelineMonths,
     inputs.property.location,
     inputs.property.landValue || inputs.property.purchasePrice,
@@ -269,6 +270,7 @@ function generateCashflow(
   profitResult: ReturnType<typeof calculateProfit>,
   interestRate: number,
   settlementDate: string,
+  contractDate: string,
   timelineMonths: number,
   location: string,
   landValue: number,
@@ -325,7 +327,9 @@ function generateCashflow(
       // Add land tax for December months within ownership window
       if (settlementDate && timelineMonths > 0) {
         const settlement = new Date(settlementDate);
-        const end = new Date(settlement);
+        // Project end date is measured from contractDate, not settlementDate
+        const anchor = contractDate ? new Date(contractDate) : settlement;
+        const end = new Date(anchor);
         end.setMonth(end.getMonth() + timelineMonths);
 
         if (periodDate.getMonth() === 11) { // December

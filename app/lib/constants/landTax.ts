@@ -220,15 +220,22 @@ export function calculateLandTaxOverPeriod(
 /**
  * Count how many land-tax payments are due between settlement and end-of-project.
  * Rule: If the property is owned on 31 Dec, land tax is payable for that year.
+ *
+ * Project duration (timelineMonths) is measured from contractDate, not settlementDate.
+ * The end-of-project date = contractDate + timelineMonths.
  */
 export function countLandTaxPayments(
   settlementDate: string,
+  contractDate: string,
   timelineMonths: number
 ): number {
   if (!settlementDate || timelineMonths <= 0) return 0;
 
   const settlement = new Date(settlementDate);
-  const end = new Date(settlement);
+  // Project end date is contractDate + timelineMonths; fallback to settlementDate
+  // if contractDate is not yet set.
+  const anchor = contractDate ? new Date(contractDate) : settlement;
+  const end = new Date(anchor);
   end.setMonth(end.getMonth() + timelineMonths);
 
   let count = 0;
@@ -255,6 +262,7 @@ export function calculateProjectLandTax(
   state: AustralianState | string,
   landValue: number,
   settlementDate: string,
+  contractDate: string,
   timelineMonths: number,
   auto: boolean,
   override?: number,
@@ -263,6 +271,6 @@ export function calculateProjectLandTax(
   const annual = auto
     ? calculateLandTax(state, landValue, isTrust)
     : (override ?? 0);
-  const payments = countLandTaxPayments(settlementDate, timelineMonths);
+  const payments = countLandTaxPayments(settlementDate, contractDate, timelineMonths);
   return { annual, payments, total: annual * payments };
 }

@@ -22,14 +22,18 @@ export function PropertyInputs() {
     [property!.location, property!.purchasePrice]
   );
 
+  // Fallback: if landValue is missing/NaN/0, use purchasePrice (matching calc engine)
+  const effectiveLandValue = property!.landValue || property!.purchasePrice || 0;
+
   const landTaxAnnual = useMemo(() => {
-    if (!property!.location || !property!.landValue) return 0;
-    return calculateLandTax(property!.location, property!.landValue, false);
-  }, [property!.location, property!.landValue]);
+    if (!property!.location || !effectiveLandValue) return 0;
+    return calculateLandTax(property!.location, effectiveLandValue, false);
+  }, [property!.location, effectiveLandValue]);
 
   const timelineMonths = development?.timeline?.timelineMonths ?? 12;
   const settlementDate = development?.timeline?.settlementDate;
-  const landTaxPayments = countLandTaxPayments(settlementDate ?? "", timelineMonths);
+  const contractDate = development?.timeline?.contractDate;
+  const landTaxPayments = countLandTaxPayments(settlementDate ?? "", contractDate ?? "", timelineMonths);
   const landTaxTotal = landTaxAnnual * landTaxPayments;
 
   // Filter out any legacy stamp-duty or land-tax line items from the editable list
@@ -229,7 +233,8 @@ export function PropertyInputs() {
             {formatCurrency(landTaxAnnual)} / year × {landTaxPayments} payment{landTaxPayments !== 1 ? 's' : ''}
           </p>
           <p className="text-xs text-blue-600">
-            Based on {property.location} rates for land value of {formatCurrency(property.landValue)}.
+            Based on {property.location} rates for land value of {formatCurrency(effectiveLandValue)}.
+            {(!property.landValue && property.purchasePrice > 0) && " (fallback: using purchase price)"}
           </p>
         </div>
 

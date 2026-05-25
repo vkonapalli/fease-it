@@ -380,6 +380,7 @@ export function calculateProfit({
     property.location,
     property.landValue || property.purchasePrice,
     development.timeline.settlementDate,
+    development.timeline.contractDate,
     development.timeline.timelineMonths,
     property.landTaxAuto,
     property.landTaxOverride,
