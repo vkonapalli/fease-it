@@ -69,20 +69,29 @@ export function DevelopmentStrategyInputs() {
         />
 
         <Toggle
-          label="Pricing Model"
+          label="Pricing Model / Income"
           options={PRICING_OPTIONS}
           value={strategy.pricingModel}
           onChange={(value) => updateStrategy({ pricingModel: value as typeof strategy.pricingModel })}
         />
 
         {strategy.pricingModel === "average" && (
-          <NumberField
-            label="Average Sale Price per Lot"
-            value={strategy.averagePricePerLot}
-            onChange={(value) => updateStrategy({ averagePricePerLot: value })}
-            prefix="$"
-            min={0}
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <NumberField
+              label="Average Sale Price per Lot"
+              value={strategy.averagePricePerLot}
+              onChange={(value) => updateStrategy({ averagePricePerLot: value })}
+              prefix="$"
+              min={0}
+            />
+            <NumberField
+              label="Avg Built Area per Lot"
+              value={strategy.averageBuildAreaPerLot}
+              onChange={(value) => updateStrategy({ averageBuildAreaPerLot: value })}
+              suffix="sqm"
+              min={0}
+            />
+          </div>
         )}
 
         {strategy.pricingModel === "per-sqm" && (
@@ -158,12 +167,14 @@ export function DevelopmentStrategyInputs() {
               onChange={(value) => updateStrategy({ minLots: value > 0 ? value : null })}
               min={0}
             />
-            <NumberField
-              label="Maximum Lots"
-              value={strategy.maxLots ?? 0}
-              onChange={(value) => updateStrategy({ maxLots: value > 0 ? value : null })}
-              min={0}
-            />
+            {strategy.pricingModel !== "individual" && (
+              <NumberField
+                label="Maximum Lots"
+                value={strategy.maxLots ?? 0}
+                onChange={(value) => updateStrategy({ maxLots: value > 0 ? value : null })}
+                min={0}
+              />
+            )}
           </div>
         </div>
       </div>

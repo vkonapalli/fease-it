@@ -13,7 +13,7 @@ import { calculateLoan } from "./financing";
 import { calculateLandTax } from "~/lib/constants/landTax";
 
 const SCENARIOS: ProjectScenario[] = [
-  "sell-all",
+  "build-sell",
   "sell-1-hold-1",
   "rental-hold",
   "land-plus-build",
@@ -23,7 +23,7 @@ const SCENARIOS: ProjectScenario[] = [
 
 function getScenarioName(scenario: ProjectScenario): string {
   const names: Record<ProjectScenario, string> = {
-    "sell-all": "Sell All Lots",
+    "build-sell": "Build & Sell",
     "sell-1-hold-1": "Sell 1, Hold 1",
     "rental-hold": "Rental Hold",
     "land-plus-build": "Land + Build",

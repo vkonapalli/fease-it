@@ -281,7 +281,7 @@ export interface BudgetVsActual {
 
 // --- Scenarios ---
 export type ProjectScenario =
-  | "sell-all"           // Sell all lots (subdivision)
+  | "build-sell"         // Build and sell all lots
   | "sell-1-hold-1"      // Sell one lot, hold one for rental
   | "rental-hold"        // Hold all for rental (no sale)
   | "land-plus-build"    // Sell 1 lot + build 1 dwelling
@@ -562,6 +562,10 @@ export interface Scenario {
   sort_order: number;
   inputs: FeasibilityInputs;
   results: FeasibilityResults | null;
+  created_at: string;
+  updated_at: string;
+}
+lts: FeasibilityResults | null;
   created_at: string;
   updated_at: string;
 }

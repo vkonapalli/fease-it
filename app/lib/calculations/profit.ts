@@ -161,9 +161,14 @@ function calculateDevelopmentCosts(
 } {
   // Construction cost = cost per sqm × build area for each lot
   let construction = 0;
-  for (const lot of development.lots) {
-    if (lot.hasConstruction) {
-      construction += development.constructionCostPerSqm * lot.buildAreaSqm;
+  if (development.strategy.pricingModel === "average") {
+    // lots * avg built area * construction cost/sqm = construction cost
+    construction = development.numDwellings * development.strategy.averageBuildAreaPerLot * development.constructionCostPerSqm;
+  } else {
+    for (const lot of development.lots) {
+      if (lot.hasConstruction) {
+        construction += development.constructionCostPerSqm * lot.buildAreaSqm;
+      }
     }
   }
 
@@ -173,7 +178,11 @@ function calculateDevelopmentCosts(
     let rawAmount = cost.isPercentage
       ? totalRevenue * (cost.amount / 100)
       : cost.amount;
-    if (cost.applyPerLot) {
+    
+    // For Avg price/lot price model, we wouldn’t need lots in development costs
+    // (Requirement: For Avg price/lot price model, we wouldn’t need lots in development costs)
+    // This probably means applyPerLot should be ignored or disabled.
+    if (cost.applyPerLot && development.strategy.pricingModel !== "average") {
       rawAmount *= development.numDwellings;
     }
     other += getGSTAdjustedAmount(rawAmount, cost.gstTreatment);
@@ -320,7 +329,7 @@ export function calculateProfit({
 
     // For sell-1-hold-1 and rental scenarios
     const isSold =
-      scenario === "sell-all" ||
+      scenario === "build-sell" ||
       scenario === "land-plus-build" ||
       (scenario === "sell-1-hold-1" && !lot.isHeld);
 

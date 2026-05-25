@@ -3,7 +3,7 @@ import { useScenarioInput } from "~/stores/feasibilityStore";
 import type { ProjectScenario } from "~/types";
 
 const SCENARIO_OPTIONS: { label: string; value: ProjectScenario }[] = [
-  { label: "Sell All", value: "sell-all" },
+  { label: "Build & Sell", value: "build-sell" },
   { label: "Sell 1 Hold 1", value: "sell-1-hold-1" },
   { label: "Rental Hold", value: "rental-hold" },
   { label: "Land + Build", value: "land-plus-build" },

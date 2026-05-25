@@ -17,7 +17,7 @@ import {
 import type { Strategy, StrategyScenario, ProjectScenario } from "~/types";
 
 const STRATEGY_OPTIONS: { value: ProjectScenario; label: string }[] = [
-  { value: "sell-all", label: "Sell All Lots" },
+  { value: "build-sell", label: "Build & Sell" },
   { value: "sell-1-hold-1", label: "Sell 1, Hold 1" },
   { value: "rental-hold", label: "Rental Hold" },
   { value: "land-plus-build", label: "Land + Build" },
@@ -37,7 +37,7 @@ export default function SettingsPage() {
   const [selectedStrategyId, setSelectedStrategyId] = useState<string>(allStrategies[0]?.id ?? "");
   const [editingStrategy, setEditingStrategy] = useState<Strategy | null>(null);
   const [showAddScenario, setShowAddScenario] = useState(false);
-  const [newScenarioStrategy, setNewScenarioStrategy] = useState<ProjectScenario>("sell-all");
+  const [newScenarioStrategy, setNewScenarioStrategy] = useState<ProjectScenario>("build-sell");
 
   const selectedStrategy = allStrategies.find((p) => p.id === selectedStrategyId);
   const isEditing = editingStrategy?.id === selectedStrategyId;

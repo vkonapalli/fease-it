@@ -6,7 +6,7 @@ import { calculateStampDuty } from "~/lib/calculations/stampDuty";
 import type { FeasibilityInputs, ProjectScenario } from "~/types";
 
 const PROJECT_SCENARIOS = [
-  "sell-all",
+  "build-sell",
   "sell-1-hold-1",
   "rental-hold",
   "land-plus-build",
@@ -17,7 +17,7 @@ const PROJECT_SCENARIOS = [
 const scenarioSchema = z.enum(PROJECT_SCENARIOS);
 
 const strategyDescriptions: Record<ProjectScenario, string> = {
-  "sell-all": "Sell all lots at completion for immediate profit. No units held.",
+  "build-sell": "Build and sell dwellings at completion for immediate profit. No units held.",
   "sell-1-hold-1": "Sell one lot to recoup capital, hold one for rental income and capital growth.",
   "rental-hold": "Hold all lots for rental income and long-term capital appreciation.",
   "land-plus-build": "Sell one raw lot, build a dwelling on the other and hold for rental.",
@@ -181,7 +181,7 @@ export const calculateScenarioSummary = tool({
     overridePathsRef(),
   inputSchema: z.object({
     strategy: scenarioSchema.describe(
-      "The project scenario/strategy to evaluate: sell-all, sell-1-hold-1, rental-hold, land-plus-build, build-hold, sda-hold"
+      "The project scenario/strategy to evaluate: build-sell, sell-1-hold-1, rental-hold, land-plus-build, build-hold, sda-hold"
     ),
     overrides: z
       .record(z.string(), z.unknown())
@@ -394,7 +394,7 @@ export const SYSTEM_PROMPT = `You are an AI assistant for Fease-It, an Australia
 - **applyProjectActions**: Create/update scenarios in the project. Call this when the user wants to actually make changes.
 
 ## Strategy Types
-- **sell-all**: Sell all lots at completion for immediate profit
+- **build-sell**: Build and sell all dwellings at completion for immediate profit
 - **sell-1-hold-1**: Sell one lot, hold one for rental income and growth
 - **rental-hold**: Hold all lots for rental income and long-term appreciation
 - **land-plus-build**: Sell one raw lot, build and hold the other

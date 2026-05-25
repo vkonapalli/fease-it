@@ -79,7 +79,7 @@ function applyStoreActions(actions: ParsedAction[]) {
 
 const HINTS = [
   "Sell all with $800k purchase",
-  "Compare sell-all vs rental-hold",
+  "Compare build-sell vs rental-hold",
   "Show stamp duty for $1.2M in NSW",
   "Create all scenarios for $500k",
 ];

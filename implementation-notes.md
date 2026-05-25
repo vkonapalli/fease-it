@@ -118,26 +118,36 @@ Running log of decisions, tradeoffs, and changes made during the SSR refactor.
 
 ---
 
-## Summary
+## 2026-05-25 — Strategy & Pricing Model Refactor
 
-All phases of the SSR refactor are complete. TypeScript compiles cleanly (`npm run typecheck` passes).
+### Decision: Rename `sell-all` to `build-sell`
+**Context:** User requested adding "build & sell" instead of "sell all".
+**Implementation:** Renamed `sell-all` to `build-sell` throughout the app (types, schemas, calculations, templates, and UI components). This clarifies that the scenario involves building dwellings and then selling them.
 
-**What changed:**
-- `app/lib/supabase/server.ts` — new server client using `SUPABASE_SECRET_KEY`
-- `app/lib/auth.server.ts` — new `requireAuth` / `getAuthUser` helpers
-- `app/lib/supabase/client.ts` — `isSupabaseConfigured` now works on server + client
-- `app/routes/login.tsx` — server `loader` + `action`; `<Form>` submission
-- `app/routes/projects.tsx` — server `loader` + `action`; `useLoaderData` + `useFetcher`
-- `app/routes/project-detail.tsx` — server `loader` + `action`; hydrates Zustand from loader
-- `app/routes/_layout.tsx` — auth `loader` passes user to Header
-- `app/components/layout/Header.tsx` — accepts `user` prop, conditionally shows Sign Out
+### Decision: Rename "Templating" to "Strategy" in UI
+**Context:** User requested renaming the templating to Strategy.
+**Implementation:** Updated UI labels in `CreateProjectDialog` and `SettingsPage` to consistently use "Strategy". Built-in strategies (Land Subdivision, Build & Hold, Build & Sell) now have empty scenarios by default, allowing users to add their own.
 
-**What stays client-side:**
-- Feasibility calculations (`calculateFeasibility`, visx charts)
-- Auto-save debounce (2s) for scenario updates
-- Project creation dialog (complex multi-step UI with strategy selection)
-- Scenario add/rename/copy (local state first, async sync)
-- Settings page (localStorage-only strategies)
+### Decision: Update Pricing Model / Income UI
+**Context:** Rename label to `Pricing model/Income`, remove "maximum lots" for "Individual price", and add "avg built area" for "Avg price/lot".
+**Implementation:** 
+- Updated `DevelopmentStrategyInputs.tsx` with the new label.
+- Added `averageBuildAreaPerLot` field to `DevelopmentStrategy` type and UI.
+- Construction costs now use `numDwellings * averageBuildAreaPerLot * constructionCostPerSqm` when the pricing model is "average".
+- Conditional rendering hides "Maximum Lots" in the stress test when "Individual" pricing is selected.
+
+### Decision: Implement Line-by-Line Feasibility Table
+**Context:** User requested a line-by-line format for feasibility, similar to the LVR table.
+**Implementation:** Created a new `FeasibilityTable.tsx` component that shows a detailed breakdown of costs and revenue.
+
+### Decision: Reorder RHS Results
+**Context:** "Funding and LVR comparisons are not very important, can be pushed down. Line by line format... for feasibility is the most important."
+**Implementation:** Reordered components in `project-detail.tsx`. `SummaryCards` and the new `FeasibilityTable` are now at the top. `ScenarioComparison` shows prominently if multiple scenarios exist. `ComparisonTable` (LVR) has been moved down.
+
+### Decision: Land Tax Calculation Verification
+**Context:** Dec 31st rule: "if it’s in my ownership, then I have to pay land tax."
+**Implementation:** Verified `countLandTaxPayments` in `landTax.ts`. It correctly uses the Dec 31st rule, checking each December between the settlement date and the project end date (measured from the contract date).
 
 ---
+
 

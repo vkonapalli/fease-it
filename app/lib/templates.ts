@@ -7,7 +7,7 @@ import type { FeasibilityInputs, ProjectScenario, StrategyScenario, Strategy } f
 export function createBaseInputs(): FeasibilityInputs {
   return {
     name: "New Property",
-    scenario: "sell-all",
+    scenario: "build-sell",
     property: {
       purchasePrice: 1000000,
       landArea: 1000,
@@ -54,6 +54,7 @@ export function createBaseInputs(): FeasibilityInputs {
         minLots: null,
         maxLots: null,
         averagePricePerLot: 600000,
+        averageBuildAreaPerLot: 0,
         pricePerSqm: 0,
         lotSizeGroups: [],
       },
@@ -165,12 +166,12 @@ export function createBaseInputs(): FeasibilityInputs {
 // Strategy-Specific Inputs
 // ============================================================
 
-export function createSellAllInputs(): FeasibilityInputs {
+export function createBuildSellInputs(): FeasibilityInputs {
   const base = createBaseInputs();
   return {
     ...base,
-    name: "Sell All Lots",
-    scenario: "sell-all",
+    name: "Build & Sell",
+    scenario: "build-sell",
     development: {
       ...base.development,
       lots: base.development.lots.map((l) => ({ ...l, isHeld: false, hasConstruction: false })),
@@ -468,7 +469,7 @@ export function createScenariosFromStrategy(
 }
 
 const STRATEGY_CREATORS: Record<ProjectScenario, () => FeasibilityInputs> = {
-  "sell-all": createSellAllInputs,
+  "build-sell": createBuildSellInputs,
   "sell-1-hold-1": createSell1Hold1Inputs,
   "rental-hold": createRentalHoldInputs,
   "land-plus-build": createLandPlusBuildInputs,
@@ -486,7 +487,7 @@ export function createStrategyScenario(
 ): StrategyScenario {
   const inputs = createInputsForStrategy(strategy);
   const strategyNames: Record<ProjectScenario, string> = {
-    "sell-all": "Sell All Lots",
+    "build-sell": "Build & Sell",
     "sell-1-hold-1": "Sell 1, Hold 1",
     "rental-hold": "Rental Hold",
     "land-plus-build": "Land + Build",
@@ -494,7 +495,7 @@ export function createStrategyScenario(
     "sda-hold": "SDA Hold",
   };
   const strategyDescriptions: Record<ProjectScenario, string> = {
-    "sell-all": "Sell all lots at completion.",
+    "build-sell": "Build and sell dwellings at completion.",
     "sell-1-hold-1": "Sell one lot, hold one for rental.",
     "rental-hold": "Hold all lots for rental income.",
     "land-plus-build": "Sell one raw lot, build and hold on the other.",

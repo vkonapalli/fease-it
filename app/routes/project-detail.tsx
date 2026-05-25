@@ -15,6 +15,7 @@ import { SDAInputs } from "~/components/inputs/SDAInputs";
 import { CapitalStackInputs } from "~/components/inputs/CapitalStackInputs";
 import { CapitalSpreadInputs } from "~/components/inputs/CapitalSpreadInputs";
 import { CopyScenarioDialog } from "~/components/inputs/CopyScenarioDialog";
+import { FeasibilityTable } from "~/components/results/FeasibilityTable";
 import { SummaryCards } from "~/components/results/SummaryCards";
 import { ScenarioTabs } from "~/components/results/ScenarioTabs";
 import { ComparisonTable } from "~/components/results/ComparisonTable";
@@ -521,12 +522,12 @@ export default function ProjectDetail() {
           </div>
 
           <div className="space-y-4">
-            <ScenarioComparison />
             {isSDA ? (
               <SDAResults sdaConfig={inputs?.sda} />
             ) : activeResult && results ? (
               <>
                 <SummaryCards results={activeResult} />
+                <FeasibilityTable result={activeResult} />
                 <DeficitCard
                   deficit={activeResult.deficit}
                   totalProjectCost={activeResult.totalProjectCost}
@@ -535,9 +536,12 @@ export default function ProjectDetail() {
                   privateLendingAmount={activeResult.privateLendingAmount}
                   committedCapital={activeResult.committedCapital}
                 />
+                
+                {scenarios.length > 1 && <ScenarioComparison />}
+                
                 <ScenarioTabs scenarios={results.scenarios} activeScenario={results.activeScenario} />
-                <ComparisonTable comparison={activeResult.comparison} />
                 <CostBreakdownChart costs={activeResult.costBreakdown} />
+                <ComparisonTable comparison={activeResult.comparison} />
                 <JVSummary jv={activeResult.jv} />
                 <CashflowTable cashflow={activeResult.cashflow} />
                 <YearlyProjectionTable projections={activeResult.yearlyProjections} />

@@ -3,12 +3,12 @@ import { calculateFeasibility } from "./index";
 import { createBaseInputs } from "../templates";
 
 describe("calculateFeasibility", () => {
-  it("should calculate basic sell-all feasibility correctly", () => {
+  it("should calculate basic build-sell feasibility correctly", () => {
     const inputs = createBaseInputs();
     const result = calculateFeasibility(inputs);
 
-    expect(result.activeScenario).toBe("sell-all");
-    const activeResult = result.scenarios.find(s => s.scenario === "sell-all");
+    expect(result.activeScenario).toBe("build-sell");
+    const activeResult = result.scenarios.find(s => s.scenario === "build-sell");
     expect(activeResult).toBeDefined();
 
     if (activeResult) {

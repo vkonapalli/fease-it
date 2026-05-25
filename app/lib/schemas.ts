@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const ProjectScenarioSchema = z.enum([
-  "sell-all",
+  "build-sell",
   "sell-1-hold-1",
   "rental-hold",
   "land-plus-build",
