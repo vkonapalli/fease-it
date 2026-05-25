@@ -109,7 +109,11 @@ export default function ProjectsPage() {
           </div>
         )}
 
-      <CreateProjectDialog isOpen={dialogOpen} onClose={() => setDialogOpen(false)} />
+      <CreateProjectDialog
+        isOpen={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onCreated={(project) => setProjects((prev) => [project, ...prev])}
+      />
     </main>
   );
 }

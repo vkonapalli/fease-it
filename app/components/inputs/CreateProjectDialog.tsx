@@ -8,13 +8,15 @@ import { isSupabaseConfigured } from "~/services/authService";
 import { FolderOpen, X, Check, ChevronDown, Settings, Trash2 } from "lucide-react";
 import type { Strategy, StrategyScenario, FeasibilityInputs } from "~/types";
 import type { Scenario } from "~/stores/appStore";
+import type { Project } from "~/services/projectService";
 
 interface CreateProjectDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  onCreated?: (project: Project) => void;
 }
 
-export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProps) {
+export function CreateProjectDialog({ isOpen, onClose, onCreated }: CreateProjectDialogProps) {
   const navigate = useNavigate();
   const customStrategies = useAppStore((s) => s.customStrategies);
   const preferredStrategyId = useAppStore((s) => s.preferredStrategyId);
@@ -101,6 +103,7 @@ export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProp
         const project = await createProject(projectNameFinal);
         projectId = project.id;
         projectNameFinal = project.name;
+        onCreated?.(project);
 
         for (let i = 0; i < scenariosToCreate.length; i++) {
           const s = scenariosToCreate[i];
