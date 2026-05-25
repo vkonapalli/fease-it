@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { FeasibilityInputs, TemplatePack } from "~/types";
+import type { FeasibilityInputs, Strategy } from "~/types";
 import { createBaseInputs } from "~/lib/templates";
 
 export interface Scenario {
@@ -47,12 +47,12 @@ interface AppState {
   getActiveInputs: () => FeasibilityInputs | null;
   updateActiveInputs: (inputs: Partial<FeasibilityInputs>) => void;
 
-  // Template Packs
-  customPacks: TemplatePack[];
-  preferredPackId: string | null;
-  saveCustomPack: (pack: TemplatePack) => void;
-  deleteCustomPack: (id: string) => void;
-  setPreferredPack: (id: string | null) => void;
+  // Strategies
+  customStrategies: Strategy[];
+  preferredStrategyId: string | null;
+  saveCustomStrategy: (strategy: Strategy) => void;
+  deleteCustomStrategy: (id: string) => void;
+  setPreferredStrategy: (id: string | null) => void;
 
   // Hydration
   _hasHydrated: boolean;
@@ -194,45 +194,45 @@ export const useAppStore = create<AppState>()(
           };
         }),
 
-      // Template Packs
-      customPacks: [],
-      preferredPackId: null,
+      // Strategies
+      customStrategies: [],
+      preferredStrategyId: null,
 
-      saveCustomPack: (pack) =>
+      saveCustomStrategy: (strategy) =>
         set((state) => {
-          const existing = state.customPacks.find((p) => p.id === pack.id);
+          const existing = state.customStrategies.find((p) => p.id === strategy.id);
           if (existing) {
             return {
-              customPacks: state.customPacks.map((p) =>
-                p.id === pack.id ? pack : p
+              customStrategies: state.customStrategies.map((p) =>
+                p.id === strategy.id ? strategy : p
               ),
             };
           }
-          return { customPacks: [...state.customPacks, pack] };
+          return { customStrategies: [...state.customStrategies, strategy] };
         }),
 
-      deleteCustomPack: (id) =>
+      deleteCustomStrategy: (id) =>
         set((state) => ({
-          customPacks: state.customPacks.filter((p) => p.id !== id),
-          preferredPackId:
-            state.preferredPackId === id ? null : state.preferredPackId,
+          customStrategies: state.customStrategies.filter((p) => p.id !== id),
+          preferredStrategyId:
+            state.preferredStrategyId === id ? null : state.preferredStrategyId,
         })),
 
-      setPreferredPack: (id) => set({ preferredPackId: id }),
+      setPreferredStrategy: (id) => set({ preferredStrategyId: id }),
 
       // Hydration
       _hasHydrated: false,
       setHasHydrated: (state) => set({ _hasHydrated: state }),
     }),
     {
-      name: "fease-it-storage-v2",
+      name: "fease-it-storage-v3",
       partialize: (state) => ({
         projectId: state.projectId,
         projectName: state.projectName,
         scenarios: state.scenarios,
         activeScenarioId: state.activeScenarioId,
-        customPacks: state.customPacks,
-        preferredPackId: state.preferredPackId,
+        customStrategies: state.customStrategies,
+        preferredStrategyId: state.preferredStrategyId,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

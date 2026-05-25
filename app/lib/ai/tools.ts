@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { createInputsForStrategy, getAllPacks, createScenariosFromPack } from "~/lib/templates";
+import { createInputsForStrategy, getAllStrategies, createScenariosFromStrategy } from "~/lib/templates";
 import { calculateScenario } from "~/lib/calculations";
 import { calculateStampDuty } from "~/lib/calculations/stampDuty";
 import type { FeasibilityInputs, ProjectScenario } from "~/types";
@@ -203,13 +203,13 @@ export const calculateScenarioSummary = tool({
   },
 });
 
-export const listTemplatePacks = tool({
+export const listStrategies = tool({
   description:
-    "List all built-in template packs and their included scenarios. Template packs are collections of related scenarios that can be created together.",
+    "List all built-in strategies. Strategies are collections of related scenarios that can be created together.",
   inputSchema: z.object({}),
   execute: async () => {
-    const packs = getAllPacks();
-    return packs.map((p) => ({
+    const strategies = getAllStrategies();
+    return strategies.map((p) => ({
       id: p.id,
       name: p.name,
       description: p.description,
@@ -292,7 +292,7 @@ export const runCalculation = tool({
 
 export const applyProjectActions = tool({
   description:
-    "Create scenarios, update inputs, or load template packs in the user's project. Call this EXACTLY ONCE when the user wants to modify the project. Combine multiple actions into one call when possible. After calling, confirm what was done in plain English.",
+    "Create scenarios, update inputs, or load strategies in the user's project. Call this EXACTLY ONCE when the user wants to modify the project. Combine multiple actions into one call when possible. After calling, confirm what was done in plain English.",
   inputSchema: z.object({
     actions: z
       .array(
@@ -315,11 +315,11 @@ export const applyProjectActions = tool({
               .describe("Dot-path key-value pairs to merge into the current scenario's inputs"),
           }),
           z.object({
-            type: z.literal("create_from_pack"),
-            packId: z.string().describe("Template pack ID from listTemplatePacks"),
+            type: z.literal("create_from_strategy"),
+            strategyId: z.string().describe("Strategy ID from listStrategies"),
             selectedIds: z
               .array(z.string())
-              .describe("Scenario IDs from the pack to create (all if user wants all)"),
+              .describe("Scenario IDs from the strategy to create (all if user wants all)"),
           }),
         ])
       )
@@ -337,7 +337,7 @@ export const applyProjectActions = tool({
 type ActionItem =
   | { type: "create_scenario"; name?: string; strategy: string; overrides: Record<string, unknown> }
   | { type: "update_inputs"; changes: Record<string, unknown> }
-  | { type: "create_from_pack"; packId: string; selectedIds: string[] };
+  | { type: "create_from_strategy"; strategyId: string; selectedIds: string[] };
 
 export function resolveActions(actions: ActionItem[]) {
   const resolved: Array<{
@@ -346,7 +346,7 @@ export function resolveActions(actions: ActionItem[]) {
     inputs?: FeasibilityInputs;
     strategy?: ProjectScenario;
     changes?: Record<string, unknown>;
-    packId?: string;
+    strategyId?: string;
     selectedIds?: string[];
   }> = [];
 
@@ -370,11 +370,11 @@ export function resolveActions(actions: ActionItem[]) {
         name: "Update Inputs",
         changes: action.changes,
       });
-    } else if (action.type === "create_from_pack") {
+    } else if (action.type === "create_from_strategy") {
       resolved.push({
-        type: "create_from_pack",
-        name: "Create from Pack",
-        packId: action.packId,
+        type: "create_from_strategy",
+        name: "Create from Strategy",
+        strategyId: action.strategyId,
         selectedIds: action.selectedIds,
       });
     }
@@ -389,7 +389,7 @@ export const SYSTEM_PROMPT = `You are an AI assistant for Fease-It, an Australia
 - **calculateScenarioSummary**: Run a feasibility calculation with user's values. Returns profit, costs, revenue, etc. Use this for "what does this look like?" questions.
 - **getInputsForStrategy**: Get default inputs for a strategy (rarely needed).
 - **estimateStampDuty**: Calculate Australian stamp duty.
-- **listTemplatePacks**: List available scenario template packs.
+- **listStrategies**: List available strategies.
 - **runCalculation**: Execute JavaScript for ad-hoc financial math (yield, ROI, loan payments, compound growth).
 - **applyProjectActions**: Create/update scenarios in the project. Call this when the user wants to actually make changes.
 

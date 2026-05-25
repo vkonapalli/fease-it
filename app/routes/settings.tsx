@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useAppStore } from "~/stores/appStore";
-import { BUILT_IN_PACKS, getAllPacks, createScenarioTemplate } from "~/lib/templates";
+import { BUILT_IN_STRATEGIES, getAllStrategies, createStrategyScenario } from "~/lib/templates";
 import { Button } from "~/components/ui/Button";
 import {
   Star,
@@ -14,7 +14,7 @@ import {
   Package,
   List,
 } from "lucide-react";
-import type { TemplatePack, ScenarioTemplate, ProjectScenario } from "~/types";
+import type { Strategy, StrategyScenario, ProjectScenario } from "~/types";
 
 const STRATEGY_OPTIONS: { value: ProjectScenario; label: string }[] = [
   { value: "sell-all", label: "Sell All Lots" },
@@ -26,117 +26,117 @@ const STRATEGY_OPTIONS: { value: ProjectScenario; label: string }[] = [
 ];
 
 export default function SettingsPage() {
-  const customPacks = useAppStore((s) => s.customPacks);
-  const preferredPackId = useAppStore((s) => s.preferredPackId);
-  const saveCustomPack = useAppStore((s) => s.saveCustomPack);
-  const deleteCustomPack = useAppStore((s) => s.deleteCustomPack);
-  const setPreferredPack = useAppStore((s) => s.setPreferredPack);
+  const customStrategies = useAppStore((s) => s.customStrategies);
+  const preferredStrategyId = useAppStore((s) => s.preferredStrategyId);
+  const saveCustomStrategy = useAppStore((s) => s.saveCustomStrategy);
+  const deleteCustomStrategy = useAppStore((s) => s.deleteCustomStrategy);
+  const setPreferredStrategy = useAppStore((s) => s.setPreferredStrategy);
 
-  const allPacks = useMemo(() => getAllPacks(customPacks), [customPacks]);
+  const allStrategies = useMemo(() => getAllStrategies(customStrategies), [customStrategies]);
 
-  const [selectedPackId, setSelectedPackId] = useState<string>(allPacks[0]?.id ?? "");
-  const [editingPack, setEditingPack] = useState<TemplatePack | null>(null);
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string>(allStrategies[0]?.id ?? "");
+  const [editingStrategy, setEditingStrategy] = useState<Strategy | null>(null);
   const [showAddScenario, setShowAddScenario] = useState(false);
   const [newScenarioStrategy, setNewScenarioStrategy] = useState<ProjectScenario>("sell-all");
 
-  const selectedPack = allPacks.find((p) => p.id === selectedPackId);
-  const isEditing = editingPack?.id === selectedPackId;
-  const canEdit = selectedPack ? !selectedPack.isBuiltIn : false;
+  const selectedStrategy = allStrategies.find((p) => p.id === selectedStrategyId);
+  const isEditing = editingStrategy?.id === selectedStrategyId;
+  const canEdit = selectedStrategy ? !selectedStrategy.isBuiltIn : false;
 
   function startEdit() {
-    if (!selectedPack) return;
-    setEditingPack(JSON.parse(JSON.stringify(selectedPack)));
+    if (!selectedStrategy) return;
+    setEditingStrategy(JSON.parse(JSON.stringify(selectedStrategy)));
   }
 
   function cancelEdit() {
-    setEditingPack(null);
+    setEditingStrategy(null);
     setShowAddScenario(false);
   }
 
   function saveEdit() {
-    if (!editingPack) return;
-    saveCustomPack(editingPack);
-    setEditingPack(null);
+    if (!editingStrategy) return;
+    saveCustomStrategy(editingStrategy);
+    setEditingStrategy(null);
     setShowAddScenario(false);
   }
 
-  function clonePack() {
-    if (!selectedPack) return;
-    const clone: TemplatePack = {
+  function cloneStrategy() {
+    if (!selectedStrategy) return;
+    const clone: Strategy = {
       id: `custom-${crypto.randomUUID()}`,
-      name: `${selectedPack.name} (Custom)`,
-      description: `Cloned from ${selectedPack.name}`,
+      name: `${selectedStrategy.name} (Custom)`,
+      description: `Cloned from ${selectedStrategy.name}`,
       isBuiltIn: false,
-      scenarios: selectedPack.scenarios.map((s) => ({
+      scenarios: selectedStrategy.scenarios.map((s) => ({
         ...s,
         id: `scenario-${crypto.randomUUID()}`,
       })),
     };
-    saveCustomPack(clone);
-    setSelectedPackId(clone.id);
+    saveCustomStrategy(clone);
+    setSelectedStrategyId(clone.id);
   }
 
-  function handleDeletePack() {
-    if (!selectedPack || selectedPack.isBuiltIn) return;
-    if (!confirm(`Delete custom pack "${selectedPack.name}"?`)) return;
-    deleteCustomPack(selectedPack.id);
-    setSelectedPackId(BUILT_IN_PACKS[0]?.id ?? "");
+  function handleDeleteStrategy() {
+    if (!selectedStrategy || selectedStrategy.isBuiltIn) return;
+    if (!confirm(`Delete custom strategy "${selectedStrategy.name}"?`)) return;
+    deleteCustomStrategy(selectedStrategy.id);
+    setSelectedStrategyId(BUILT_IN_STRATEGIES[0]?.id ?? "");
   }
 
-  function updateEditingField<K extends keyof TemplatePack>(
+  function updateEditingField<K extends keyof Strategy>(
     field: K,
-    value: TemplatePack[K]
+    value: Strategy[K]
   ) {
-    if (!editingPack) return;
-    setEditingPack({ ...editingPack, [field]: value });
+    if (!editingStrategy) return;
+    setEditingStrategy({ ...editingStrategy, [field]: value });
   }
 
   function updateScenarioField(
     scenarioId: string,
-    field: keyof ScenarioTemplate,
+    field: keyof StrategyScenario,
     value: string
   ) {
-    if (!editingPack) return;
-    setEditingPack({
-      ...editingPack,
-      scenarios: editingPack.scenarios.map((s) =>
+    if (!editingStrategy) return;
+    setEditingStrategy({
+      ...editingStrategy,
+      scenarios: editingStrategy.scenarios.map((s) =>
         s.id === scenarioId ? { ...s, [field]: value } : s
       ),
     });
   }
 
   function removeScenario(scenarioId: string) {
-    if (!editingPack) return;
-    setEditingPack({
-      ...editingPack,
-      scenarios: editingPack.scenarios.filter((s) => s.id !== scenarioId),
+    if (!editingStrategy) return;
+    setEditingStrategy({
+      ...editingStrategy,
+      scenarios: editingStrategy.scenarios.filter((s) => s.id !== scenarioId),
     });
   }
 
   function moveScenario(scenarioId: string, direction: -1 | 1) {
-    if (!editingPack) return;
-    const idx = editingPack.scenarios.findIndex((s) => s.id === scenarioId);
+    if (!editingStrategy) return;
+    const idx = editingStrategy.scenarios.findIndex((s) => s.id === scenarioId);
     if (idx === -1) return;
     const newIdx = idx + direction;
-    if (newIdx < 0 || newIdx >= editingPack.scenarios.length) return;
+    if (newIdx < 0 || newIdx >= editingStrategy.scenarios.length) return;
 
-    const scenarios = [...editingPack.scenarios];
+    const scenarios = [...editingStrategy.scenarios];
     const [removed] = scenarios.splice(idx, 1);
     scenarios.splice(newIdx, 0, removed);
-    setEditingPack({ ...editingPack, scenarios });
+    setEditingStrategy({ ...editingStrategy, scenarios });
   }
 
   function addScenario() {
-    if (!editingPack) return;
-    const template = createScenarioTemplate(newScenarioStrategy);
-    setEditingPack({
-      ...editingPack,
-      scenarios: [...editingPack.scenarios, template],
+    if (!editingStrategy) return;
+    const template = createStrategyScenario(newScenarioStrategy);
+    setEditingStrategy({
+      ...editingStrategy,
+      scenarios: [...editingStrategy.scenarios, template],
     });
     setShowAddScenario(false);
   }
 
-  const displayPack = isEditing ? editingPack : selectedPack;
+  const displayStrategy = isEditing ? editingStrategy : selectedStrategy;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -146,49 +146,49 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide flex items-center gap-1.5">
                 <Package className="h-4 w-4" />
-                Template Packs
+                Strategies
               </h2>
-              <Button size="sm" variant="ghost" onClick={clonePack} disabled={!selectedPack}>
+              <Button size="sm" variant="ghost" onClick={cloneStrategy} disabled={!selectedStrategy}>
                 <Copy className="h-3.5 w-3.5 mr-1" />
                 Clone
               </Button>
             </div>
 
             <div className="space-y-2">
-              {allPacks.map((pack) => (
+              {allStrategies.map((strategy) => (
                 <button
-                  key={pack.id}
+                  key={strategy.id}
                   onClick={() => {
-                    setSelectedPackId(pack.id);
-                    setEditingPack(null);
+                    setSelectedStrategyId(strategy.id);
+                    setEditingStrategy(null);
                     setShowAddScenario(false);
                   }}
                   className={`w-full text-left rounded-lg border px-4 py-3 transition-colors ${
-                    pack.id === selectedPackId
+                    strategy.id === selectedStrategyId
                       ? "border-accent bg-accent/5 ring-1 ring-accent"
                       : "border-gray-200 bg-white hover:bg-gray-50"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-800 truncate">
-                      {pack.name}
+                      {strategy.name}
                     </span>
-                    {preferredPackId === pack.id && (
+                    {preferredStrategyId === strategy.id && (
                       <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span
                       className={`text-xs px-1.5 py-0.5 rounded-full ${
-                        pack.isBuiltIn
+                        strategy.isBuiltIn
                           ? "bg-gray-100 text-gray-500"
                           : "bg-accent/10 text-accent"
                       }`}
                     >
-                      {pack.isBuiltIn ? "Built-in" : "Custom"}
+                      {strategy.isBuiltIn ? "Built-in" : "Custom"}
                     </span>
                     <span className="text-xs text-gray-400">
-                      {pack.scenarios.length} scenario{pack.scenarios.length !== 1 ? "s" : ""}
+                      {strategy.scenarios.length} scenario{strategy.scenarios.length !== 1 ? "s" : ""}
                     </span>
                   </div>
                 </button>
@@ -196,9 +196,9 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Right: Pack Detail */}
+          {/* Right: Strategy Detail */}
           <div className="lg:col-span-2">
-            {displayPack ? (
+            {displayStrategy ? (
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 {/* Detail Header */}
                 <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -207,21 +207,21 @@ export default function SettingsPage() {
                       <div className="space-y-2">
                         <input
                           type="text"
-                          value={editingPack!.name}
+                          value={editingStrategy!.name}
                           onChange={(e) => updateEditingField("name", e.target.value)}
                           className="w-full text-lg font-semibold text-gray-800 border border-gray-300 rounded px-2 py-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                         />
                         <input
                           type="text"
-                          value={editingPack!.description}
+                          value={editingStrategy!.description}
                           onChange={(e) => updateEditingField("description", e.target.value)}
                           className="w-full text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                         />
                       </div>
                     ) : (
                       <div>
-                        <h2 className="text-lg font-semibold text-gray-800">{displayPack.name}</h2>
-                        <p className="text-sm text-gray-500">{displayPack.description}</p>
+                        <h2 className="text-lg font-semibold text-gray-800">{displayStrategy.name}</h2>
+                        <p className="text-sm text-gray-500">{displayStrategy.description}</p>
                       </div>
                     )}
                   </div>
@@ -242,19 +242,19 @@ export default function SettingsPage() {
                       <>
                         <Button
                           size="sm"
-                          variant={preferredPackId === displayPack.id ? "primary" : "ghost"}
+                          variant={preferredStrategyId === displayStrategy.id ? "primary" : "ghost"}
                           onClick={() =>
-                            setPreferredPack(
-                              preferredPackId === displayPack.id ? null : displayPack.id
+                            setPreferredStrategy(
+                              preferredStrategyId === displayStrategy.id ? null : displayStrategy.id
                             )
                           }
                         >
                           <Star
                             className={`h-4 w-4 mr-1 ${
-                              preferredPackId === displayPack.id ? "fill-white" : ""
+                              preferredStrategyId === displayStrategy.id ? "fill-white" : ""
                             }`}
                           />
-                          {preferredPackId === displayPack.id ? "Preferred" : "Set Preferred"}
+                          {preferredStrategyId === displayStrategy.id ? "Preferred" : "Set Preferred"}
                         </Button>
                         {canEdit ? (
                           <>
@@ -264,7 +264,7 @@ export default function SettingsPage() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={handleDeletePack}
+                              onClick={handleDeleteStrategy}
                               className="text-error hover:bg-red-50"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -320,7 +320,7 @@ export default function SettingsPage() {
                   )}
 
                   <div className="space-y-2">
-                    {displayPack.scenarios.map((scenario, index) => (
+                    {displayStrategy.scenarios.map((scenario, index) => (
                       <div
                         key={scenario.id}
                         className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-white"
@@ -336,7 +336,7 @@ export default function SettingsPage() {
                             </button>
                             <button
                               onClick={() => moveScenario(scenario.id, 1)}
-                              disabled={index === displayPack.scenarios.length - 1}
+                              disabled={index === displayStrategy.scenarios.length - 1}
                               className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
                             >
                               <ChevronDown className="h-4 w-4" />
@@ -395,9 +395,9 @@ export default function SettingsPage() {
                       </div>
                     ))}
 
-                    {displayPack.scenarios.length === 0 && (
+                    {displayStrategy.scenarios.length === 0 && (
                       <p className="text-sm text-gray-400 text-center py-8">
-                        No scenarios in this pack. {isEditing ? "Add one above." : ""}
+                        No scenarios in this strategy. {isEditing ? "Add one above." : ""}
                       </p>
                     )}
                   </div>
@@ -406,7 +406,7 @@ export default function SettingsPage() {
             ) : (
               <div className="text-center py-16 bg-white border border-gray-200 rounded-xl">
                 <Package className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-                <p className="text-gray-500">Select a template pack to manage.</p>
+                <p className="text-gray-500">Select a strategy to manage.</p>
               </div>
             )}
           </div>

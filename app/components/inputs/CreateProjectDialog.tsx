@@ -1,12 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "~/components/ui/Button";
-import { BUILT_IN_PACKS, getAllPacks, createScenariosFromPack } from "~/lib/templates";
+import { BUILT_IN_STRATEGIES, getAllStrategies, createScenariosFromStrategy, createBaseInputs } from "~/lib/templates";
 import { useAppStore } from "~/stores/appStore";
 import { createProject, createScenario } from "~/services/projectService";
 import { isSupabaseConfigured } from "~/services/authService";
 import { FolderOpen, X, Check, ChevronDown, Settings, Trash2 } from "lucide-react";
-import type { TemplatePack, ScenarioTemplate, FeasibilityInputs } from "~/types";
+import type { Strategy, StrategyScenario, FeasibilityInputs } from "~/types";
 import type { Scenario } from "~/stores/appStore";
 
 interface CreateProjectDialogProps {
@@ -16,44 +16,44 @@ interface CreateProjectDialogProps {
 
 export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProps) {
   const navigate = useNavigate();
-  const customPacks = useAppStore((s) => s.customPacks);
-  const preferredPackId = useAppStore((s) => s.preferredPackId);
-  const saveCustomPack = useAppStore((s) => s.saveCustomPack);
-  const deleteCustomPack = useAppStore((s) => s.deleteCustomPack);
-  const setPreferredPack = useAppStore((s) => s.setPreferredPack);
+  const customStrategies = useAppStore((s) => s.customStrategies);
+  const preferredStrategyId = useAppStore((s) => s.preferredStrategyId);
+  const saveCustomStrategy = useAppStore((s) => s.saveCustomStrategy);
+  const deleteCustomStrategy = useAppStore((s) => s.deleteCustomStrategy);
+  const setPreferredStrategy = useAppStore((s) => s.setPreferredStrategy);
   const setProject = useAppStore((s) => s.setProject);
   const setScenarios = useAppStore((s) => s.setScenarios);
   const setActiveScenario = useAppStore((s) => s.setActiveScenario);
 
-  const allPacks = useMemo(() => getAllPacks(customPacks), [customPacks]);
+  const allStrategies = useMemo(() => getAllStrategies(customStrategies), [customStrategies]);
 
   const [step, setStep] = useState<"details" | "templates">("details");
   const [projectName, setProjectName] = useState("");
-  const [selectedPackId, setSelectedPackId] = useState<string>(preferredPackId ?? BUILT_IN_PACKS[0].id);
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string>(preferredStrategyId ?? BUILT_IN_STRATEGIES[0].id);
   const [selectedScenarioIds, setSelectedScenarioIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
-  // Pre-select all scenarios when pack changes
+  // Pre-select all scenarios when strategy changes
   useEffect(() => {
-    const pack = allPacks.find((p) => p.id === selectedPackId);
-    if (pack) {
-      setSelectedScenarioIds(pack.scenarios.map((s) => s.id));
+    const strategy = allStrategies.find((p) => p.id === selectedStrategyId);
+    if (strategy) {
+      setSelectedScenarioIds(strategy.scenarios.map((s) => s.id));
     }
-  }, [selectedPackId, allPacks]);
+  }, [selectedStrategyId, allStrategies]);
 
   // Reset when opened
   useEffect(() => {
     if (isOpen) {
       setStep("details");
       setProjectName("");
-      setSelectedPackId(preferredPackId ?? BUILT_IN_PACKS[0].id);
+      setSelectedStrategyId(preferredStrategyId ?? BUILT_IN_STRATEGIES[0].id);
       setCreating(false);
       setShowSettings(false);
     }
-  }, [isOpen, preferredPackId]);
+  }, [isOpen, preferredStrategyId]);
 
-  const selectedPack = allPacks.find((p) => p.id === selectedPackId);
+  const selectedStrategy = allStrategies.find((p) => p.id === selectedStrategyId);
 
   function toggleScenario(id: string) {
     setSelectedScenarioIds((prev) =>
@@ -62,8 +62,8 @@ export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProp
   }
 
   function toggleAll() {
-    if (!selectedPack) return;
-    const allIds = selectedPack.scenarios.map((s) => s.id);
+    if (!selectedStrategy) return;
+    const allIds = selectedStrategy.scenarios.map((s) => s.id);
     const allSelected = allIds.every((id) => selectedScenarioIds.includes(id));
     setSelectedScenarioIds(allSelected ? [] : allIds);
   }
@@ -80,11 +80,20 @@ export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProp
   }
 
   async function handleCreate() {
-    if (!projectName.trim() || !selectedPack || selectedScenarioIds.length === 0) return;
+    if (!projectName.trim() || !selectedStrategy) return;
 
     setCreating(true);
     try {
-      const scenariosToCreate = createScenariosFromPack(selectedPack, selectedScenarioIds);
+      let scenariosToCreate: { name: string; inputs: FeasibilityInputs }[];
+
+      if (selectedStrategy.scenarios.length === 0) {
+        // Built-in strategy with no pre-built scenarios: create one default scenario
+        scenariosToCreate = [{ name: "Scenario 1", inputs: createBaseInputs() }];
+      } else {
+        if (selectedScenarioIds.length === 0) return;
+        scenariosToCreate = createScenariosFromStrategy(selectedStrategy, selectedScenarioIds);
+      }
+
       let projectId: string;
       let projectNameFinal = projectName.trim();
 
@@ -118,19 +127,19 @@ export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProp
     }
   }
 
-  function handleSaveAsCustomPack() {
-    if (!selectedPack) return;
-    const name = prompt("Name this custom template pack:", `${selectedPack.name} (Custom)`);
+  function handleSaveAsCustomStrategy() {
+    if (!selectedStrategy) return;
+    const name = prompt("Name this custom strategy:", `${selectedStrategy.name} (Custom)`);
     if (!name?.trim()) return;
 
-    const customPack: TemplatePack = {
+    const customStrategy: Strategy = {
       id: `custom-${crypto.randomUUID()}`,
       name: name.trim(),
-      description: `Custom pack based on ${selectedPack.name}`,
+      description: `Custom strategy based on ${selectedStrategy.name}`,
       isBuiltIn: false,
-      scenarios: selectedPack.scenarios.filter((s) => selectedScenarioIds.includes(s.id)),
+      scenarios: selectedStrategy.scenarios.filter((s) => selectedScenarioIds.includes(s.id)),
     };
-    saveCustomPack(customPack);
+    saveCustomStrategy(customStrategy);
   }
 
   if (!isOpen) return null;
@@ -141,7 +150,7 @@ export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProp
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-primary">
-            {step === "details" ? "Create New Project" : "Choose Scenario Templates"}
+            {step === "details" ? "Create New Project" : "Choose Strategy"}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="h-5 w-5" />
@@ -174,8 +183,8 @@ export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProp
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-2">What happens next?</h3>
                 <p className="text-sm text-gray-500">
-                  You will choose a template pack of pre-configured scenarios. Each scenario
-                  represents a different development strategy (sell all, hold for rent, SDA, etc.).
+                  You will choose a strategy for your project. Built-in strategies come with no
+                  pre-configured scenarios — you can add your own once the project is created.
                 </p>
               </div>
 
@@ -191,11 +200,11 @@ export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProp
 
           {step === "templates" && (
             <div className="space-y-4">
-              {/* Pack Selector */}
+              {/* Strategy Selector */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-medium text-gray-700">
-                    Template Pack
+                    Strategy
                   </label>
                   <button
                     onClick={() => setShowSettings(!showSettings)}
@@ -209,28 +218,28 @@ export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProp
                 {showSettings ? (
                   <div className="border border-gray-200 rounded-lg p-3 space-y-3">
                     <p className="text-xs text-gray-500">
-                      Set your preferred default pack for new projects.
+                      Set your preferred default strategy for new projects.
                     </p>
                     <div className="space-y-2">
-                      {allPacks.map((pack) => (
+                      {allStrategies.map((strategy) => (
                         <label
-                          key={pack.id}
+                          key={strategy.id}
                           className="flex items-center gap-2 cursor-pointer"
                         >
                           <input
                             type="radio"
-                            name="preferred-pack"
-                            checked={preferredPackId === pack.id}
-                            onChange={() => setPreferredPack(pack.id)}
+                            name="preferred-strategy"
+                            checked={preferredStrategyId === strategy.id}
+                            onChange={() => setPreferredStrategy(strategy.id)}
                             className="text-accent focus:ring-accent"
                           />
-                          <span className="text-sm text-gray-700 flex-1">{pack.name}</span>
-                          {!pack.isBuiltIn && (
+                          <span className="text-sm text-gray-700 flex-1">{strategy.name}</span>
+                          {!strategy.isBuiltIn && (
                             <button
                               onClick={(e) => {
                                 e.preventDefault();
-                                if (confirm(`Delete "${pack.name}"?`)) {
-                                  deleteCustomPack(pack.id);
+                                if (confirm(`Delete "${strategy.name}"?`)) {
+                                  deleteCustomStrategy(strategy.id);
                                 }
                               }}
                               className="text-gray-400 hover:text-error"
@@ -241,9 +250,9 @@ export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProp
                         </label>
                       ))}
                     </div>
-                    {preferredPackId && (
+                    {preferredStrategyId && (
                       <button
-                        onClick={() => setPreferredPack(null)}
+                        onClick={() => setPreferredStrategy(null)}
                         className="text-xs text-gray-500 hover:text-accent"
                       >
                         Clear preference
@@ -253,13 +262,13 @@ export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProp
                 ) : (
                   <div className="relative">
                     <select
-                      value={selectedPackId}
-                      onChange={(e) => setSelectedPackId(e.target.value)}
+                      value={selectedStrategyId}
+                      onChange={(e) => setSelectedStrategyId(e.target.value)}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm appearance-none focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent bg-white"
                     >
-                      {allPacks.map((pack) => (
-                        <option key={pack.id} value={pack.id}>
-                          {pack.name} {pack.isBuiltIn ? "(Built-in)" : "(Custom)"}
+                      {allStrategies.map((strategy) => (
+                        <option key={strategy.id} value={strategy.id}>
+                          {strategy.name} {strategy.isBuiltIn ? "(Built-in)" : "(Custom)"}
                         </option>
                       ))}
                     </select>
@@ -267,13 +276,13 @@ export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProp
                   </div>
                 )}
 
-                {selectedPack && !showSettings && (
-                  <p className="text-xs text-gray-500 mt-1">{selectedPack.description}</p>
+                {selectedStrategy && !showSettings && (
+                  <p className="text-xs text-gray-500 mt-1">{selectedStrategy.description}</p>
                 )}
               </div>
 
               {/* Scenario Selection */}
-              {!showSettings && selectedPack && (
+              {!showSettings && selectedStrategy && selectedStrategy.scenarios.length > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-medium text-gray-700">
@@ -283,14 +292,14 @@ export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProp
                       onClick={toggleAll}
                       className="text-xs text-accent hover:underline"
                     >
-                      {selectedScenarioIds.length === selectedPack.scenarios.length
+                      {selectedScenarioIds.length === selectedStrategy.scenarios.length
                         ? "Deselect all"
                         : "Select all"}
                     </button>
                   </div>
 
                   <div className="space-y-2">
-                    {selectedPack.scenarios.map((scenario) => (
+                    {selectedStrategy.scenarios.map((scenario) => (
                       <ScenarioCheckbox
                         key={scenario.id}
                         scenario={scenario}
@@ -319,11 +328,11 @@ export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProp
                     Back
                   </Button>
                   <div className="flex-1" />
-                  {selectedPack?.isBuiltIn && (
+                  {selectedStrategy?.isBuiltIn && selectedStrategy && selectedStrategy.scenarios.length > 0 && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={handleSaveAsCustomPack}
+                      onClick={handleSaveAsCustomStrategy}
                       disabled={selectedScenarioIds.length === 0}
                     >
                       Save as Custom
@@ -331,7 +340,10 @@ export function CreateProjectDialog({ isOpen, onClose }: CreateProjectDialogProp
                   )}
                   <Button
                     size="sm"
-                    disabled={selectedScenarioIds.length === 0 || creating}
+                    disabled={
+                      (selectedStrategy && selectedStrategy.scenarios.length > 0 && selectedScenarioIds.length === 0) ||
+                      creating
+                    }
                     onClick={handleCreate}
                   >
                     {creating ? (
@@ -361,7 +373,7 @@ function ScenarioCheckbox({
   checked,
   onChange,
 }: {
-  scenario: ScenarioTemplate;
+  scenario: StrategyScenario;
   checked: boolean;
   onChange: () => void;
 }) {

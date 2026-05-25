@@ -8,7 +8,7 @@ import type { ToolCallRecord, ConversationTurn } from "@fease-it/convo";
 import {
   getInputsForStrategy,
   calculateScenarioSummary,
-  listTemplatePacks,
+  listStrategies,
   estimateStampDuty,
   applyProjectActions,
   runCalculation,
@@ -18,7 +18,7 @@ import {
 const tools = {
   getInputsForStrategy,
   calculateScenarioSummary,
-  listTemplatePacks,
+  listStrategies,
   estimateStampDuty,
   applyProjectActions,
   runCalculation,

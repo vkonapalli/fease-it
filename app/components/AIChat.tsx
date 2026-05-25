@@ -4,7 +4,7 @@ import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
 import { useAppStore } from "~/stores/appStore";
 import { resolveActions, setDeep } from "~/lib/ai/tools";
-import { getAllPacks, createScenariosFromPack } from "~/lib/templates";
+import { getAllStrategies, createScenariosFromStrategy } from "~/lib/templates";
 import { Button } from "~/components/ui/Button";
 import type { FeasibilityInputs, ProjectScenario } from "~/types";
 import type { Scenario } from "~/stores/appStore";
@@ -25,7 +25,7 @@ interface ParsedAction {
   inputs?: FeasibilityInputs;
   strategy?: ProjectScenario;
   changes?: Record<string, unknown>;
-  packId?: string;
+  strategyId?: string;
   selectedIds?: string[];
 }
 
@@ -53,14 +53,14 @@ function applyStoreActions(actions: ParsedAction[]) {
         state.updateActiveInputs(merged as unknown as Partial<FeasibilityInputs>);
       }
     } else if (
-      action.type === "create_from_pack" &&
-      action.packId &&
+      action.type === "create_from_strategy" &&
+      action.strategyId &&
       action.selectedIds
     ) {
-      const packs = getAllPacks(state.customPacks);
-      const pack = packs.find((p) => p.id === action.packId);
-      if (pack) {
-        const scenarios = createScenariosFromPack(pack, action.selectedIds);
+      const strategies = getAllStrategies(state.customStrategies);
+      const strategy = strategies.find((p) => p.id === action.strategyId);
+      if (strategy) {
+        const scenarios = createScenariosFromStrategy(strategy, action.selectedIds);
         for (const s of scenarios) {
           const newScenario: Scenario = {
             id: crypto.randomUUID(),

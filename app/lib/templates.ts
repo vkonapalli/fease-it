@@ -1,4 +1,4 @@
-import type { FeasibilityInputs, ProjectScenario, ScenarioTemplate, TemplatePack } from "~/types";
+import type { FeasibilityInputs, ProjectScenario, StrategyScenario, Strategy } from "~/types";
 
 // ============================================================
 // Base Template Inputs
@@ -414,154 +414,30 @@ export function createSDAHoldInputs(): FeasibilityInputs {
 }
 
 // ============================================================
-// Built-In Template Packs
+// Built-In Strategies
 // ============================================================
 
-export const BUILT_IN_PACKS: TemplatePack[] = [
+export const BUILT_IN_STRATEGIES: Strategy[] = [
   {
-    id: "subdivision-essentials",
-    name: "Subdivision Essentials",
-    description: "The three core strategies every subdivision project should evaluate: sell everything, keep one for rental, or hold all for long-term income.",
+    id: "land-subdivision",
+    name: "Land Subdivision",
+    description: "Land subdivision projects with the flexibility to add your own scenarios.",
     isBuiltIn: true,
-    scenarios: [
-      {
-        id: "sell-all",
-        name: "Sell All Lots",
-        strategy: "sell-all",
-        description: "Sell all lots at completion for immediate profit.",
-        inputs: createSellAllInputs(),
-      },
-      {
-        id: "sell-1-hold-1",
-        name: "Sell 1, Hold 1",
-        strategy: "sell-1-hold-1",
-        description: "Sell one lot to recoup capital, hold one for rental income and growth.",
-        inputs: createSell1Hold1Inputs(),
-      },
-      {
-        id: "rental-hold",
-        name: "Rental Hold",
-        strategy: "rental-hold",
-        description: "Hold all lots for rental income and long-term capital appreciation.",
-        inputs: createRentalHoldInputs(),
-      },
-    ],
+    scenarios: [],
   },
   {
     id: "build-hold",
     name: "Build & Hold",
-    description: "Evaluate construction plus hold strategies for townhouse or duplex developments.",
+    description: "Build dwellings and hold for rental income and long-term capital growth.",
     isBuiltIn: true,
-    scenarios: [
-      {
-        id: "sell-all-build",
-        name: "Sell All (with Build)",
-        strategy: "sell-all",
-        description: "Build and sell all dwellings.",
-        inputs: {
-          ...createBuildHoldInputs(),
-          name: "Sell All (with Build)",
-          scenario: "sell-all",
-          development: {
-            ...createBuildHoldInputs().development,
-            lots: createBuildHoldInputs().development.lots.map((l) => ({ ...l, isHeld: false })),
-          },
-        },
-      },
-      {
-        id: "build-hold",
-        name: "Build & Hold",
-        strategy: "build-hold",
-        description: "Build dwellings and hold for rental income.",
-        inputs: createBuildHoldInputs(),
-      },
-      {
-        id: "rental-hold-build",
-        name: "Rental Hold",
-        strategy: "rental-hold",
-        description: "Hold existing or newly built dwellings for rental income.",
-        inputs: createRentalHoldInputs(),
-      },
-    ],
+    scenarios: [],
   },
   {
-    id: "sda-specialist",
-    name: "SDA Specialist",
-    description: "NDIS Specialist Disability Accommodation scenarios with high-yield rental models.",
+    id: "build-sell",
+    name: "Build & Sell",
+    description: "Build dwellings and sell at completion for immediate profit.",
     isBuiltIn: true,
-    scenarios: [
-      {
-        id: "sda-hold",
-        name: "SDA Hold",
-        strategy: "sda-hold",
-        description: "Build SDA-compliant dwellings and hold for NDIS rental income.",
-        inputs: createSDAHoldInputs(),
-      },
-      {
-        id: "build-hold-sda",
-        name: "Build & Hold",
-        strategy: "build-hold",
-        description: "Standard build and hold for comparison.",
-        inputs: createBuildHoldInputs(),
-      },
-      {
-        id: "sell-all-sda",
-        name: "Sell All",
-        strategy: "sell-all",
-        description: "Build and sell all for immediate profit comparison.",
-        inputs: createSellAllInputs(),
-      },
-    ],
-  },
-  {
-    id: "complete",
-    name: "Complete Analysis",
-    description: "Evaluate all six strategies side-by-side for a comprehensive feasibility assessment.",
-    isBuiltIn: true,
-    scenarios: [
-      {
-        id: "sell-all",
-        name: "Sell All Lots",
-        strategy: "sell-all",
-        description: "Sell all lots at completion.",
-        inputs: createSellAllInputs(),
-      },
-      {
-        id: "sell-1-hold-1",
-        name: "Sell 1, Hold 1",
-        strategy: "sell-1-hold-1",
-        description: "Sell one lot, hold one for rental.",
-        inputs: createSell1Hold1Inputs(),
-      },
-      {
-        id: "rental-hold",
-        name: "Rental Hold",
-        strategy: "rental-hold",
-        description: "Hold all lots for rental income.",
-        inputs: createRentalHoldInputs(),
-      },
-      {
-        id: "build-hold",
-        name: "Build & Hold",
-        strategy: "build-hold",
-        description: "Build dwellings and hold for rent.",
-        inputs: createBuildHoldInputs(),
-      },
-      {
-        id: "land-plus-build",
-        name: "Land + Build",
-        strategy: "land-plus-build",
-        description: "Sell one raw lot, build and hold on the other.",
-        inputs: createLandPlusBuildInputs(),
-      },
-      {
-        id: "sda-hold",
-        name: "SDA Hold",
-        strategy: "sda-hold",
-        description: "SDA disability housing with NDIS funding.",
-        inputs: createSDAHoldInputs(),
-      },
-    ],
+    scenarios: [],
   },
 ];
 
@@ -569,19 +445,19 @@ export const BUILT_IN_PACKS: TemplatePack[] = [
 // Helpers
 // ============================================================
 
-export function getAllPacks(customPacks: TemplatePack[] = []): TemplatePack[] {
-  return [...BUILT_IN_PACKS, ...customPacks];
+export function getAllStrategies(customStrategies: Strategy[] = []): Strategy[] {
+  return [...BUILT_IN_STRATEGIES, ...customStrategies];
 }
 
-export function getPackById(id: string, customPacks: TemplatePack[] = []): TemplatePack | undefined {
-  return getAllPacks(customPacks).find((p) => p.id === id);
+export function getStrategyById(id: string, customStrategies: Strategy[] = []): Strategy | undefined {
+  return getAllStrategies(customStrategies).find((p) => p.id === id);
 }
 
-export function createScenariosFromPack(
-  pack: TemplatePack,
+export function createScenariosFromStrategy(
+  strategy: Strategy,
   selectedScenarioIds: string[]
 ): { name: string; inputs: FeasibilityInputs }[] {
-  return pack.scenarios
+  return strategy.scenarios
     .filter((s) => selectedScenarioIds.includes(s.id))
     .map((s) => ({
       name: s.name,
@@ -602,10 +478,10 @@ export function createInputsForStrategy(strategy: ProjectScenario): FeasibilityI
   return STRATEGY_CREATORS[strategy]();
 }
 
-export function createScenarioTemplate(
+export function createStrategyScenario(
   strategy: ProjectScenario,
-  overrides?: Partial<ScenarioTemplate>
-): ScenarioTemplate {
+  overrides?: Partial<StrategyScenario>
+): StrategyScenario {
   const inputs = createInputsForStrategy(strategy);
   const strategyNames: Record<ProjectScenario, string> = {
     "sell-all": "Sell All Lots",

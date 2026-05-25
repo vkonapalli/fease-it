@@ -43,7 +43,8 @@ function vicStampDuty(price: number): number {
   if (price <= 2000000) {
     return price * 0.055;
   }
-  return price * 0.065;
+  // Marginal rate: 5.5% on first $2M, 6.5% on remainder
+  return 110000 + (price - 2000000) * 0.065;
 }
 
 function nswStampDuty(price: number): number {

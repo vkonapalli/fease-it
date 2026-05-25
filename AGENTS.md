@@ -21,15 +21,15 @@ There is **no test runner, linter, or formatter** configured.
 
 ## Architecture
 
-- **Routes**: `app/routes.ts` → `home.tsx` (main app), `projects.tsx` (project list), `settings.tsx` (template pack management), `login.tsx`.
+- **Routes**: `app/routes.ts` → `home.tsx` (main app), `projects.tsx` (project list), `settings.tsx` (strategy management), `login.tsx`.
 - **Entry layout**: `app/root.tsx` supplies the HTML shell, fonts, and error boundary.
 - **Inputs / Results split**:
   - Input components: `app/components/inputs/`
   - Result components: `app/components/results/`
   - Calculation engine: `app/lib/calculations/` (index, profit, financing, gst, sda)
-  - Template packs: `app/lib/templates.ts`
+  - Strategies: `app/lib/templates.ts`
   - Shared types: `app/types/index.ts`
-- **Store**: `useAppStore` (Zustand) holds projects, scenarios, and custom template packs. Persisted to `localStorage` under `fease-it-storage-v2`. `useFeasibilityStore` is a compatibility shim reading the active scenario from `useAppStore`.
+- **Store**: `useAppStore` (Zustand) holds projects, scenarios, and custom strategies. Persisted to `localStorage` under `fease-it-storage-v3`. `useFeasibilityStore` is a compatibility shim reading the active scenario from `useAppStore`.
 
 ## Known Bugs / Code Quirks
 
