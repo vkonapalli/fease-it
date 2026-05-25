@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useFetcher, useLoaderData, redirect } from "react-router";
+import { useNavigate, useParams, useFetcher, useLoaderData, redirect, useSubmit, useNavigation } from "react-router";
 import type { Route } from "./+types/project-detail";
 import { PropertyInputs } from "~/components/inputs/PropertyInputs";
 import { TimelineInputs } from "~/components/inputs/TimelineInputs";
@@ -94,34 +94,85 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   } as LoaderData;
 }
 
+import { ScenarioActionSchema } from "~/lib/schemas";
+import * as db from "~/lib/db.server";
+
 export async function action({ request, params }: Route.ActionArgs) {
   const projectId = params.projectId;
+  if (!projectId) return { error: "Missing projectId" };
+
   const formData = await request.formData();
-  const intent = formData.get("intent") as string;
+  const submission = ScenarioActionSchema.safeParse(Object.fromEntries(formData));
+
+  if (!submission.success) {
+    return { error: "Invalid submission", details: submission.error.format() };
+  }
+
+  const { intent, id, name, inputs } = submission.data;
 
   if (!isSupabaseConfigured()) {
+    // Local fallback logic (could be improved, but handles the non-DB case)
     return { ok: true };
   }
 
-  const { user, supabase, headers } = await requireAuth(request);
-  if (!user || !supabase) {
-    throw redirect("/login", { headers });
-  }
+  const { user } = await requireAuth(request);
+  if (!user) throw redirect("/login");
 
-  if (intent === "delete-scenario") {
-    const id = formData.get("id") as string;
-    const { error } = await supabase
-      .from("scenarios")
-      .delete()
-      .eq("id", id)
-      .eq("project_id", projectId);
-    if (error) {
-      return { error: error.message };
+  try {
+    if (intent === "delete-scenario" && id) {
+      await db.deleteScenario(request, user.id, id, projectId);
+      const remaining = await db.getScenarios(request, projectId);
+      if (remaining && remaining.length > 0) {
+         return redirect(`/projects/${projectId}/scenarios/${remaining[0].id}`);
+      }
+      return redirect(`/projects/${projectId}`);
     }
-    return { ok: true };
+
+    if (intent === "create-scenario" && name && inputs) {
+      const localId = submission.data.localId;
+      const scenario = await db.createScenario(
+        request,
+        user.id,
+        projectId,
+        name,
+        JSON.parse(inputs),
+        0, // sortOrder should be calculated or passed
+        localId
+      );
+      
+      // If it was submitted via background fetcher (no navigation intended), return JSON
+      if (request.headers.get("X-Remix-Fetch") === "yes" || request.headers.get("Sec-Fetch-Mode") === "cors") {
+        return { ok: true, scenario };
+      }
+      return redirect(`/projects/${projectId}/scenarios/${scenario.id}`);
+    }
+
+    if (intent === "rename-scenario" && id && name) {
+      await db.updateScenario(request, user.id, projectId, id, { name });
+      return { ok: true };
+    }
+
+    if (intent === "update-scenario" && id && inputs) {
+      await db.updateScenario(request, user.id, projectId, id, { inputs: JSON.parse(inputs) });
+      return { ok: true };
+    }
+
+    if (intent === "duplicate-scenario" && id && name && inputs) {
+      const scenario = await db.createScenario(
+        request,
+        user.id,
+        projectId,
+        name,
+        JSON.parse(inputs),
+        0 // sortOrder
+      );
+      return redirect(`/projects/${projectId}/scenarios/${scenario.id}`);
+    }
+  } catch (err: any) {
+    return { error: err.message };
   }
 
-  return null;
+  return { error: "Unknown intent" };
 }
 
 export default function ProjectDetail() {
@@ -129,6 +180,7 @@ export default function ProjectDetail() {
   const { project, scenarios: initialScenarios, localOnly } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const fetcher = useFetcher<typeof action>();
+  const submit = useSubmit();
 
   const setProject = useAppStore((s) => s.setProject);
   const projectName = useAppStore((s) => s.projectName);
@@ -137,12 +189,12 @@ export default function ProjectDetail() {
   const activeScenarioId = useAppStore((s) => s.activeScenarioId);
   const setScenarios = useAppStore((s) => s.setScenarios);
   const setActiveScenario = useAppStore((s) => s.setActiveScenario);
+  const hydrateFromServer = useAppStore((s) => s.hydrateFromServer);
   const addScenario = useAppStore((s) => s.addScenario);
   const removeScenario = useAppStore((s) => s.removeScenario);
   const updateScenarioLocal = useAppStore((s) => s.updateScenario);
   const duplicateScenarioWithOptions = useAppStore((s) => s.duplicateScenarioWithOptions);
 
-  const [saving, setSaving] = useState(false);
   const [copyDialogId, setCopyDialogId] = useState<string | null>(null);
   const scenarioFromUrl = parseScenarioFromSplat(splat);
   const initialised = useRef(false);
@@ -156,25 +208,26 @@ export default function ProjectDetail() {
 
   // Hydrate Zustand from server data on mount / when project changes
   useEffect(() => {
-    if (project) {
-      setProject(project.id, project.name);
+    if (project && initialScenarios.length > 0) {
+      hydrateFromServer(project.id, project.name, initialScenarios);
     }
-    if (initialScenarios.length > 0) {
-      setScenarios(initialScenarios);
-    } else if (localOnly && scenarios.length === 0) {
-      // Local-only mode with no server data: ensure at least one default scenario exists
-      // (Zustand store already has a default, so this is a no-op in practice)
-    }
-  }, [project, initialScenarios, localOnly, setProject, setScenarios, scenarios.length]);
+  }, [project, initialScenarios, hydrateFromServer]);
 
   // Select scenario from URL or default to first
   useEffect(() => {
     if (scenarios.length === 0) return;
+    
     if (scenarioFromUrl) {
       const found = scenarios.find((s) => s.id === scenarioFromUrl);
       if (found) {
-        setActiveScenario(scenarioFromUrl);
+        // Only set active if different to avoid redundant updates
+        if (activeScenarioId !== scenarioFromUrl) {
+          setActiveScenario(scenarioFromUrl);
+        }
       } else {
+        // If the ID in the URL is not found, it might be a newly added local-only scenario
+        // that hasn't been hydrated yet, or it's genuinely missing.
+        // If we have hydrated and it's still missing, then we fall back.
         setActiveScenario(scenarios[0].id);
         handleNavigateScenario(scenarios[0].id);
       }
@@ -183,7 +236,7 @@ export default function ProjectDetail() {
       handleNavigateScenario(scenarios[0].id);
     }
     initialised.current = true;
-  }, [scenarios, scenarioFromUrl, setActiveScenario, handleNavigateScenario]);
+  }, [scenarios, scenarioFromUrl, activeScenarioId, setActiveScenario, handleNavigateScenario]);
 
   // Auto-save scenarios to Supabase (debounced)
   useEffect(() => {
@@ -193,29 +246,32 @@ export default function ProjectDetail() {
       const unsynced = scenarios.filter((s) => !s.synced);
       if (unsynced.length === 0) return;
 
-      setSaving(true);
-      try {
-        for (const s of unsynced) {
-          if (s.remoteId) {
-            await updateScenarioRemote(s.remoteId, {
+      for (const s of unsynced) {
+        if (s.remoteId) {
+          fetcher.submit(
+            {
+              intent: "update-scenario",
+              id: s.remoteId,
+              inputs: JSON.stringify(s.inputs),
+            },
+            { method: "post" }
+          );
+        } else {
+          fetcher.submit(
+            {
+              intent: "create-scenario",
               name: s.name,
-              inputs: s.inputs,
-            });
-          } else {
-            const created = await createScenarioRemote(projectId, s.name, s.inputs, s.sortOrder);
-            updateScenarioLocal(s.id, { remoteId: created.id, synced: true });
-          }
+              inputs: JSON.stringify(s.inputs),
+              localId: s.id,
+            },
+            { method: "post" }
+          );
         }
-        setScenarios(scenarios.map((s) => ({ ...s, synced: true })));
-      } catch (err) {
-        console.error("Auto-save failed:", err);
-      } finally {
-        setSaving(false);
       }
     }, 2000);
 
     return () => clearTimeout(timeout);
-  }, [scenarios, projectId, localOnly, setScenarios, updateScenarioLocal]);
+  }, [scenarios, projectId, localOnly, fetcher]);
 
   const activeScenario = useMemo(
     () => scenarios.find((s) => s.id === activeScenarioId) ?? scenarios[0] ?? null,
@@ -232,6 +288,12 @@ export default function ProjectDetail() {
   const isSDA = inputs?.scenario === "sda-hold";
   const activeResult = results?.scenarios.find((s) => s.scenario === results.activeScenario);
 
+  // Deriving saving state from React Router
+  const { state: navigationState, formData: navigationFormData } = useNavigation();
+  const isGlobalSaving = navigationState !== "idle" && ["create-scenario", "duplicate-scenario", "delete-scenario"].includes(navigationFormData?.get("intent") as string);
+  const isAutoSaving = fetcher.state !== "idle" && fetcher.formData?.get("intent") === "update-scenario";
+  const saving = isGlobalSaving || isAutoSaving;
+
   function handleAddScenario() {
     if (!projectId) return;
     if (scenarios.length >= 20) {
@@ -239,17 +301,30 @@ export default function ProjectDetail() {
       return;
     }
     const source = activeScenario ?? scenarios[0];
-    const newScenario: AppScenario = {
-      id: crypto.randomUUID(),
-      name: `Scenario ${scenarios.length + 1}`,
-      inputs: source
-        ? { ...source.inputs, name: `Scenario ${scenarios.length + 1}` }
-        : ({} as AppScenario["inputs"]),
-      sortOrder: Math.max(...scenarios.map((s) => s.sortOrder), 0) + 1,
-      synced: false,
-      remoteId: null,
-    };
-    addScenario(newScenario);
+    const newName = `Scenario ${scenarios.length + 1}`;
+    const newInputs = source ? { ...source.inputs, name: newName } : ({} as AppScenario["inputs"]);
+    
+    if (localOnly) {
+       // Local fallback
+       const newId = crypto.randomUUID();
+       const newScenario: AppScenario = {
+         id: newId,
+         name: newName,
+         inputs: newInputs,
+         sortOrder: Math.max(...scenarios.map((s) => s.sortOrder), 0) + 1,
+         synced: false,
+         remoteId: null,
+       };
+       addScenario(newScenario);
+       handleNavigateScenario(newId);
+       return;
+    }
+
+    const formData = new FormData();
+    formData.append("intent", "create-scenario");
+    formData.append("name", newName);
+    formData.append("inputs", JSON.stringify(newInputs));
+    submit(formData, { method: "post" });
   }
 
   async function handleDeleteScenario(id: string) {
@@ -258,14 +333,16 @@ export default function ProjectDetail() {
       return;
     }
     const scenario = scenarios.find((s) => s.id === id);
-    if (scenario?.remoteId && !localOnly) {
-      try {
-        await deleteScenarioRemote(scenario.remoteId);
-      } catch (err) {
-        console.error("Failed to delete remote scenario:", err);
-      }
+    if (localOnly || !scenario?.remoteId) {
+        removeScenario(id);
+        return;
     }
-    removeScenario(id);
+    
+    // Server deletion
+    const formData = new FormData();
+    formData.append("intent", "delete-scenario");
+    formData.append("id", scenario.remoteId);
+    submit(formData, { method: "post" });
   }
 
   function handleRenameScenario(id: string, name: string) {
@@ -282,8 +359,52 @@ export default function ProjectDetail() {
     name: string,
     options: Parameters<typeof duplicateScenarioWithOptions>[2]
   ) {
-    duplicateScenarioWithOptions(id, name, options);
+    const source = scenarios.find(s => s.id === id);
+    if (!source) return;
+    
     setCopyDialogId(null);
+    
+    if (localOnly) {
+       duplicateScenarioWithOptions(id, name, options);
+       // The store updates synchronously, we can find the newly created scenario by assuming it's the last one
+       const state = useAppStore.getState();
+       const last = state.scenarios[state.scenarios.length - 1];
+       if (last) {
+         handleNavigateScenario(last.id);
+       }
+       return;
+    }
+    
+    // We need to calculate the duplicated inputs since the server just saves them
+    // It's cleaner to duplicate the logic here or pass the options to the server.
+    // For now, let's use the local store's utility to get the inputs, then send them.
+    const defaultsPromise = import("~/lib/templates").then(m => m.createBaseInputs());
+    defaultsPromise.then(defs => {
+        const src = source.inputs;
+        const newInputs = {
+            name,
+            scenario: src.scenario,
+            property: options.copyProperty ? src.property : defs.property,
+            development: options.copyDevelopment
+              ? src.development
+              : { ...defs.development, timeline: src.development.timeline },
+            financing: options.copyFinancing ? src.financing : defs.financing,
+            revenue: options.copyRevenue ? src.revenue : defs.revenue,
+            operating: options.copyOperating ? src.operating : defs.operating,
+            jv: options.copyJV ? src.jv : defs.jv,
+            cashflow: options.copyCashflow ? src.cashflow : defs.cashflow,
+            budgetVsActual: options.copyBudget ? src.budgetVsActual : defs.budgetVsActual,
+            sda: src.sda,
+            capitalStack: options.copyFinancing ? src.capitalStack : defs.capitalStack,
+            capitalSpread: options.copyCashflow ? src.capitalSpread : defs.capitalSpread,
+          };
+          
+        const formData = new FormData();
+        formData.append("intent", "duplicate-scenario");
+        formData.append("name", name);
+        formData.append("inputs", JSON.stringify(newInputs));
+        submit(formData, { method: "post" });
+    });
   }
 
   // Optimistic delete state from fetcher
@@ -368,8 +489,16 @@ export default function ProjectDetail() {
         />
       )}
 
-      <main className="mx-auto max-w-7xl px-4 py-6">
-        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
+      <main className="mx-auto max-w-7xl px-4 py-6 relative">
+        {isGlobalSaving && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 backdrop-blur-[1px] rounded-xl">
+            <div className="flex flex-col items-center gap-2 text-primary">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="text-sm font-medium">Saving scenario...</span>
+            </div>
+          </div>
+        )}
+        <div className={`grid gap-6 grid-cols-1 lg:grid-cols-2 transition-opacity ${isGlobalSaving ? 'opacity-50 pointer-events-none' : ''}`}>
           <div className="space-y-4">
             {isSDA ? (
               <SDAInputs />

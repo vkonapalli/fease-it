@@ -1,4 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
+import { isSupabaseConfigured } from "../config";
+
+export { isSupabaseConfigured };
 
 let client: ReturnType<typeof createBrowserClient> | null = null;
 
@@ -16,18 +19,4 @@ export function getSupabaseBrowserClient() {
 
   client = createBrowserClient(supabaseUrl, supabaseKey);
   return client;
-}
-
-export function isSupabaseConfigured(): boolean {
-  // Server environment (e.g., SSR loaders/actions)
-  if (typeof process !== "undefined" && process.env) {
-    return Boolean(
-      (process.env.SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL) &&
-        (process.env.SUPABASE_SECRET_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY)
-    );
-  }
-  // Browser environment
-  return Boolean(
-    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-  );
 }

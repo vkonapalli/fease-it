@@ -57,6 +57,7 @@ interface AppState {
   // Hydration
   _hasHydrated: boolean;
   setHasHydrated: (state: boolean) => void;
+  hydrateFromServer: (projectId: string, projectName: string, scenarios: Scenario[]) => void;
 }
 
 function createDefaultScenario(): Scenario {
@@ -223,9 +224,52 @@ export const useAppStore = create<AppState>()(
       // Hydration
       _hasHydrated: false,
       setHasHydrated: (state) => set({ _hasHydrated: state }),
+      hydrateFromServer: (projectId, projectName, serverScenarios) => {
+        set((state) => {
+          // 1. Keep local-only scenarios (those without a remoteId)
+          const localOnlyScenarios = state.scenarios.filter((s) => !s.remoteId);
+          
+          // 2. Identify local scenarios that have unsynced changes
+          const unsyncedScenarios = state.scenarios.filter((s) => s.remoteId && !s.synced);
+          
+          // 3. Start with server scenarios
+          const mergedScenarios = [...serverScenarios];
+          
+          // 4. For any server scenario that has a local unsynced version, use the local one
+          for (let i = 0; i < mergedScenarios.length; i++) {
+            const unsynced = unsyncedScenarios.find(u => u.remoteId === mergedScenarios[i].remoteId);
+            if (unsynced) {
+              mergedScenarios[i] = unsynced;
+            }
+          }
+          
+          // 5. Add local-only ones that aren't already represented
+          for (const local of localOnlyScenarios) {
+            if (!mergedScenarios.find(s => s.id === local.id)) {
+              mergedScenarios.push(local);
+            }
+          }
+
+          // Sort by sortOrder
+          mergedScenarios.sort((a, b) => a.sortOrder - b.sortOrder);
+
+          return {
+            projectId,
+            projectName,
+            scenarios: mergedScenarios,
+            // If the active scenario isn't in the new list, pick the first one
+            activeScenarioId:
+              state.activeScenarioId && mergedScenarios.find((s) => s.id === state.activeScenarioId)
+                ? state.activeScenarioId
+                : mergedScenarios[0]?.id ?? null,
+            _hasHydrated: true,
+          };
+        });
+      },
     }),
     {
       name: "fease-it-storage-v3",
+      skipHydration: true,
       partialize: (state) => ({
         projectId: state.projectId,
         projectName: state.projectName,
