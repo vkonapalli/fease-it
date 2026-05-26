@@ -4,16 +4,17 @@ import { NumberField } from "~/components/ui/NumberField";
 import { Toggle } from "~/components/ui/Toggle";
 import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
 import { Button } from "~/components/ui/Button";
-import { useAppStore } from "~/stores/appStore";
-import { useShallow } from "zustand/react/shallow";
+import { useFormContext, Controller } from "react-hook-form";
+import type { FeasibilityInputs } from "~/types";
 import { RefreshCw } from "lucide-react";
 
 export function CapitalStackInputs() {
-  const capitalStack = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.capitalStack));
-  const financing = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.financing));
-  const property = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.property));
-  const capitalSpread = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.capitalSpread));
-  const updateActiveInputs = useAppStore((s) => s.updateActiveInputs);
+  const { control, watch, setValue } = useFormContext<FeasibilityInputs>();
+  
+  const capitalStack = watch("capitalStack");
+  const financing = watch("financing");
+  const property = watch("property");
+  const capitalSpread = watch("capitalSpread");
 
   const totalProjectCost = useMemo(() => {
     return property.purchasePrice;
@@ -41,34 +42,27 @@ export function CapitalStackInputs() {
     return totals;
   }, [capitalSpread, totalProjectCost]);
 
-  const updateStack = (updates: Partial<typeof capitalStack>) => {
-    updateActiveInputs({ capitalStack: { ...capitalStack!, ...updates } });
-  };
-
   function syncFromSpread() {
-    const next = { ...capitalStack! };
-
     const privateLendingTotal = spreadTotals["Private Lending"];
-    if (privateLendingTotal && privateLendingTotal > 0 && !next.privateLending.isPercentageOfCost) {
-      next.privateLending = { ...next.privateLending, amount: privateLendingTotal };
+    if (privateLendingTotal && privateLendingTotal > 0 && !capitalStack.privateLending.isPercentageOfCost) {
+      setValue("capitalStack.privateLending.amount", privateLendingTotal);
     }
 
     const profitSharingTotal = spreadTotals["Profit Sharing"];
     if (profitSharingTotal && profitSharingTotal > 0) {
-      next.profitSharing = { ...next.profitSharing, amountCommitted: profitSharingTotal };
+      setValue("capitalStack.profitSharing.amountCommitted", profitSharingTotal);
     }
 
     const devEquityTotal = spreadTotals["Developer Equity"];
     if (devEquityTotal && devEquityTotal > 0) {
-      next.developerEquity = { ...next.developerEquity, isAutoComputed: false, amount: devEquityTotal };
+      setValue("capitalStack.developerEquity.isAutoComputed", false);
+      setValue("capitalStack.developerEquity.amount", devEquityTotal);
     }
 
     const otherEquityTotal = spreadTotals["Other Equity"];
-    if (otherEquityTotal && otherEquityTotal > 0 && !next.otherEquity.isPercentageOfCost) {
-      next.otherEquity = { ...next.otherEquity, amount: otherEquityTotal };
+    if (otherEquityTotal && otherEquityTotal > 0 && !capitalStack.otherEquity.isPercentageOfCost) {
+      setValue("capitalStack.otherEquity.amount", otherEquityTotal);
     }
-
-    updateActiveInputs({ capitalStack: next });
   }
 
   const hasLinkedItems = Object.keys(spreadTotals).length > 0;
@@ -140,30 +134,34 @@ export function CapitalStackInputs() {
               </span>
             )}
           </div>
-          <Toggle
-            options={[
-              { label: "$ Amount", value: false },
-              { label: "% of Cost", value: true },
-            ]}
-            value={capitalStack.privateLending.isPercentageOfCost}
-            onChange={(value) =>
-              updateStack({
-                privateLending: { ...capitalStack.privateLending, isPercentageOfCost: value as boolean },
-              })
-            }
+          <Controller
+            name="capitalStack.privateLending.isPercentageOfCost"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <Toggle
+                {...field}
+                options={[
+                  { label: "$ Amount", value: false },
+                  { label: "% of Cost", value: true },
+                ]}
+                error={error?.message}
+              />
+            )}
           />
           <div className="flex items-center">
-            <NumberField
-              label={capitalStack.privateLending.isPercentageOfCost ? "% of Total Cost" : "Amount"}
-              value={capitalStack.privateLending.amount}
-              onChange={(value) =>
-                updateStack({
-                  privateLending: { ...capitalStack.privateLending, amount: value },
-                })
-              }
-              prefix={capitalStack.privateLending.isPercentageOfCost ? "" : "$"}
-              suffix={capitalStack.privateLending.isPercentageOfCost ? "%" : ""}
-              min={0}
+            <Controller
+              name="capitalStack.privateLending.amount"
+              control={control}
+              render={({ field, fieldState: { error } }) => (
+                <NumberField
+                  {...field}
+                  label={capitalStack.privateLending.isPercentageOfCost ? "% of Total Cost" : "Amount"}
+                  prefix={capitalStack.privateLending.isPercentageOfCost ? "" : "$"}
+                  suffix={capitalStack.privateLending.isPercentageOfCost ? "%" : ""}
+                  min={0}
+                  error={error?.message}
+                />
+              )}
             />
             {capitalStack.privateLending.isPercentageOfCost && (
               <ComputedDollarDisplay
@@ -173,17 +171,19 @@ export function CapitalStackInputs() {
               />
             )}
           </div>
-          <NumberField
-            label="Interest Rate"
-            value={capitalStack.privateLending.interestRate}
-            onChange={(value) =>
-              updateStack({
-                privateLending: { ...capitalStack.privateLending, interestRate: value },
-              })
-            }
-            suffix="%"
-            min={0}
-            step={0.01}
+          <Controller
+            name="capitalStack.privateLending.interestRate"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Interest Rate"
+                suffix="%"
+                min={0}
+                step={0.01}
+                error={error?.message}
+              />
+            )}
           />
         </div>
 
@@ -197,42 +197,48 @@ export function CapitalStackInputs() {
               </span>
             )}
           </div>
-          <NumberField
-            label="Amount Committed"
-            value={capitalStack.profitSharing.amountCommitted}
-            onChange={(value) =>
-              updateStack({
-                profitSharing: { ...capitalStack.profitSharing, amountCommitted: value },
-              })
-            }
-            prefix="$"
-            min={0}
+          <Controller
+            name="capitalStack.profitSharing.amountCommitted"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Amount Committed"
+                prefix="$"
+                min={0}
+                error={error?.message}
+              />
+            )}
           />
-          <NumberField
-            label="% on Total Capital"
-            value={capitalStack.profitSharing.percentOfTotalCapital}
-            onChange={(value) =>
-              updateStack({
-                profitSharing: { ...capitalStack.profitSharing, percentOfTotalCapital: value },
-              })
-            }
-            suffix="%"
-            min={0}
-            max={100}
-            step={0.1}
+          <Controller
+            name="capitalStack.profitSharing.percentOfTotalCapital"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="% on Total Capital"
+                suffix="%"
+                min={0}
+                max={100}
+                step={0.1}
+                error={error?.message}
+              />
+            )}
           />
-          <NumberField
-            label="% of Profit Share"
-            value={capitalStack.profitSharing.percentOfProfit}
-            onChange={(value) =>
-              updateStack({
-                profitSharing: { ...capitalStack.profitSharing, percentOfProfit: value },
-              })
-            }
-            suffix="%"
-            min={0}
-            max={100}
-            step={0.1}
+          <Controller
+            name="capitalStack.profitSharing.percentOfProfit"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="% of Profit Share"
+                suffix="%"
+                min={0}
+                max={100}
+                step={0.1}
+                error={error?.message}
+              />
+            )}
           />
         </div>
 
@@ -246,29 +252,33 @@ export function CapitalStackInputs() {
               </span>
             )}
           </div>
-          <Toggle
-            options={[
-              { label: "Auto", value: true },
-              { label: "Manual", value: false },
-            ]}
-            value={capitalStack.developerEquity.isAutoComputed}
-            onChange={(value) =>
-              updateStack({
-                developerEquity: { ...capitalStack.developerEquity, isAutoComputed: value as boolean },
-              })
-            }
+          <Controller
+            name="capitalStack.developerEquity.isAutoComputed"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <Toggle
+                {...field}
+                options={[
+                  { label: "Auto", value: true },
+                  { label: "Manual", value: false },
+                ]}
+                error={error?.message}
+              />
+            )}
           />
           {!capitalStack.developerEquity.isAutoComputed && (
-            <NumberField
-              label="Amount"
-              value={capitalStack.developerEquity.amount}
-              onChange={(value) =>
-                updateStack({
-                  developerEquity: { ...capitalStack.developerEquity, amount: value },
-                })
-              }
-              prefix="$"
-              min={0}
+            <Controller
+              name="capitalStack.developerEquity.amount"
+              control={control}
+              render={({ field, fieldState: { error } }) => (
+                <NumberField
+                  {...field}
+                  label="Amount"
+                  prefix="$"
+                  min={0}
+                  error={error?.message}
+                />
+              )}
             />
           )}
         </div>
@@ -283,30 +293,34 @@ export function CapitalStackInputs() {
               </span>
             )}
           </div>
-          <Toggle
-            options={[
-              { label: "$ Amount", value: false },
-              { label: "% of Cost", value: true },
-            ]}
-            value={capitalStack.otherEquity.isPercentageOfCost}
-            onChange={(value) =>
-              updateStack({
-                otherEquity: { ...capitalStack.otherEquity, isPercentageOfCost: value as boolean },
-              })
-            }
+          <Controller
+            name="capitalStack.otherEquity.isPercentageOfCost"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <Toggle
+                {...field}
+                options={[
+                  { label: "$ Amount", value: false },
+                  { label: "% of Cost", value: true },
+                ]}
+                error={error?.message}
+              />
+            )}
           />
           <div className="flex items-center">
-            <NumberField
-              label={capitalStack.otherEquity.isPercentageOfCost ? "% of Total Cost" : "Amount"}
-              value={capitalStack.otherEquity.amount}
-              onChange={(value) =>
-                updateStack({
-                  otherEquity: { ...capitalStack.otherEquity, amount: value },
-                })
-              }
-              prefix={capitalStack.otherEquity.isPercentageOfCost ? "" : "$"}
-              suffix={capitalStack.otherEquity.isPercentageOfCost ? "%" : ""}
-              min={0}
+            <Controller
+              name="capitalStack.otherEquity.amount"
+              control={control}
+              render={({ field, fieldState: { error } }) => (
+                <NumberField
+                  {...field}
+                  label={capitalStack.otherEquity.isPercentageOfCost ? "% of Total Cost" : "Amount"}
+                  prefix={capitalStack.otherEquity.isPercentageOfCost ? "" : "$"}
+                  suffix={capitalStack.otherEquity.isPercentageOfCost ? "%" : ""}
+                  min={0}
+                  error={error?.message}
+                />
+              )}
             />
             {capitalStack.otherEquity.isPercentageOfCost && (
               <ComputedDollarDisplay

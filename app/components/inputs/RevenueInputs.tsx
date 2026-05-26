@@ -3,9 +3,8 @@ import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Toggle } from "~/components/ui/Toggle";
 import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
-import { useAppStore } from "~/stores/appStore";
-import { useShallow } from "zustand/react/shallow";
-import type { GSTTreatment } from "~/types";
+import { useFormContext, Controller } from "react-hook-form";
+import type { FeasibilityInputs, GSTTreatment } from "~/types";
 
 const GST_OPTIONS: { label: string; value: GSTTreatment }[] = [
   { label: "GST-Free (Existing Residential)", value: "gst-free" },
@@ -15,10 +14,11 @@ const GST_OPTIONS: { label: string; value: GSTTreatment }[] = [
 ];
 
 export function RevenueInputs() {
-  const revenue = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.revenue));
-  const property = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.property));
-  const development = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.development));
-  const updateActiveInputs = useAppStore((s) => s.updateActiveInputs);
+  const { control, watch } = useFormContext<FeasibilityInputs>();
+  
+  const revenue = watch("revenue");
+  const property = watch("property");
+  const development = watch("development");
 
   const totalRevenue = useMemo(() => {
     switch (development.strategy.pricingModel) {
@@ -46,94 +46,105 @@ export function RevenueInputs() {
         {/* Margin Scheme Toggle */}
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-700">Apply Margin Scheme</span>
-          <Toggle
-            options={[
-              { label: "Off", value: false },
-              { label: "On", value: true },
-            ]}
-            value={revenue.applyMarginScheme}
-            onChange={(value) =>
-              updateActiveInputs({
-                revenue: {
-                  ...revenue!,
-                  applyMarginScheme: value as boolean,
-                },
-              })
-            }
+          <Controller
+            name="revenue.applyMarginScheme"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <Toggle
+                {...field}
+                options={[
+                  { label: "Off", value: false },
+                  { label: "On", value: true },
+                ]}
+                error={error?.message}
+              />
+            )}
           />
         </div>
 
         {revenue.applyMarginScheme && (
-          <NumberField
-            label="Cost Base per Lot (for Margin Scheme)"
-            value={revenue.gst.costBasePerLot ?? property.purchasePrice / development.numDwellings}
-            onChange={(value) =>
-              updateActiveInputs({
-                revenue: {
-                  ...revenue!,
-                  gst: { ...revenue!.gst, costBasePerLot: value },
-                },
-              })
-            }
-            prefix="$"
-            min={0}
+          <Controller
+            name="revenue.gst.costBasePerLot"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Cost Base per Lot (for Margin Scheme)"
+                value={field.value ?? property.purchasePrice / development.numDwellings}
+                prefix="$"
+                min={0}
+                error={error?.message}
+              />
+            )}
           />
         )}
 
         {!revenue.applyMarginScheme && (
-          <Toggle
-            label="GST Treatment"
-            options={GST_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
-            value={revenue.gst.treatment}
-            onChange={(value) =>
-              updateActiveInputs({
-                revenue: {
-                  ...revenue!,
-                  gst: { ...revenue!.gst, treatment: value as GSTTreatment },
-                },
-              })
-            }
+          <Controller
+            name="revenue.gst.treatment"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <Toggle
+                {...field}
+                label="GST Treatment"
+                options={GST_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
+                error={error?.message}
+              />
+            )}
           />
         )}
 
-        <NumberField
-          label="Capital Growth Rate (p.a.)"
-          value={revenue.capitalGrowthRate * 100}
-          onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, capitalGrowthRate: value / 100 } })}
-          suffix="%"
-          min={0}
-          max={50}
-          step={0.1}
+        <Controller
+          name="revenue.capitalGrowthRate"
+          control={control}
+          render={({ field, fieldState: { error } }) => (
+            <NumberField
+              {...field}
+              label="Capital Growth Rate (p.a.)"
+              value={field.value * 100}
+              onChange={(v) => field.onChange(v / 100)}
+              suffix="%"
+              min={0}
+              max={50}
+              step={0.1}
+              error={error?.message}
+            />
+          )}
         />
 
         {/* Sales Commission */}
         <div className="border-t border-gray-200 pt-4">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Sales Commission</h4>
-          <Toggle
-            options={[
-              { label: "% Based", value: "percentage" },
-              { label: "Flat Fee", value: "flat" },
-            ]}
-            value={revenue.salesCommissionType}
-            onChange={(value) =>
-              updateActiveInputs({
-                revenue: {
-                  ...revenue!,
-                  salesCommissionType: value as "percentage" | "flat",
-                },
-              })
-            }
+          <Controller
+            name="revenue.salesCommissionType"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <Toggle
+                {...field}
+                options={[
+                  { label: "% Based", value: "percentage" },
+                  { label: "Flat Fee", value: "flat" },
+                ]}
+                error={error?.message}
+              />
+            )}
           />
           {revenue.salesCommissionType === "percentage" ? (
             <div className="flex items-center mt-2">
-              <NumberField
-                label="Commission %"
-                value={revenue.salesCommissionPercent}
-                onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, salesCommissionPercent: value } })}
-                suffix="%"
-                min={0}
-                max={100}
-                step={0.1}
+              <Controller
+                name="revenue.salesCommissionPercent"
+                control={control}
+                render={({ field, fieldState: { error } }) => (
+                  <NumberField
+                    {...field}
+                    label="Commission %"
+                    suffix="%"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    error={error?.message}
+                  />
+                )}
               />
               <ComputedDollarDisplay
                 percentage={revenue.salesCommissionPercent}
@@ -143,12 +154,18 @@ export function RevenueInputs() {
             </div>
           ) : (
             <div className="mt-2">
-              <NumberField
-                label="Flat Fee"
-                value={revenue.salesCommissionFlat}
-                onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, salesCommissionFlat: value } })}
-                prefix="$"
-                min={0}
+              <Controller
+                name="revenue.salesCommissionFlat"
+                control={control}
+                render={({ field, fieldState: { error } }) => (
+                  <NumberField
+                    {...field}
+                    label="Flat Fee"
+                    prefix="$"
+                    min={0}
+                    error={error?.message}
+                  />
+                )}
               />
             </div>
           )}
@@ -156,44 +173,78 @@ export function RevenueInputs() {
 
         <div className="border-t border-gray-200 pt-4">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Rental Assumptions (Hold Scenarios)</h4>
-          <NumberField
-            label="Rent per Unit / Week"
-            value={revenue.rentalIncomePerUnitPerWeek}
-            onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, rentalIncomePerUnitPerWeek: value } })}
-            prefix="$"
-            min={0}
+          <Controller
+            name="revenue.rentalIncomePerUnitPerWeek"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Rent per Unit / Week"
+                prefix="$"
+                min={0}
+                error={error?.message}
+              />
+            )}
           />
-          <NumberField
-            label="Number of Units for Rent"
-            value={revenue.numUnitsForRent}
-            onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, numUnitsForRent: value } })}
-            min={0}
+          <Controller
+            name="revenue.numUnitsForRent"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Number of Units for Rent"
+                min={0}
+                error={error?.message}
+              />
+            )}
           />
-          <NumberField
-            label="Rental Growth Rate"
-            value={revenue.rentalGrowthRate * 100}
-            onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, rentalGrowthRate: value / 100 } })}
-            suffix="%"
-            min={0}
-            max={50}
-            step={0.1}
+          <Controller
+            name="revenue.rentalGrowthRate"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Rental Growth Rate"
+                value={field.value * 100}
+                onChange={(v) => field.onChange(v / 100)}
+                suffix="%"
+                min={0}
+                max={50}
+                step={0.1}
+                error={error?.message}
+              />
+            )}
           />
-          <NumberField
-            label="Vacancy Rate"
-            value={revenue.vacancyRate * 100}
-            onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, vacancyRate: value / 100 } })}
-            suffix="%"
-            min={0}
-            max={100}
-            step={0.1}
+          <Controller
+            name="revenue.vacancyRate"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Vacancy Rate"
+                value={field.value * 100}
+                onChange={(v) => field.onChange(v / 100)}
+                suffix="%"
+                min={0}
+                max={100}
+                step={0.1}
+                error={error?.message}
+              />
+            )}
           />
-          <NumberField
-            label="Rental Shading (Bank %)"
-            value={revenue.rentalShadingPercent}
-            onChange={(value) => updateActiveInputs({ revenue: { ...revenue!, rentalShadingPercent: value } })}
-            suffix="%"
-            min={0}
-            max={100}
+          <Controller
+            name="revenue.rentalShadingPercent"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Rental Shading (Bank %)"
+                suffix="%"
+                min={0}
+                max={100}
+                error={error?.message}
+              />
+            )}
           />
         </div>
       </div>

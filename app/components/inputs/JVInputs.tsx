@@ -1,184 +1,161 @@
 import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Button } from "~/components/ui/Button";
-import { useInputSlice } from "~/stores/feasibilityStore";
+import { useFormContext, Controller, useFieldArray } from "react-hook-form";
+import type { FeasibilityInputs } from "~/types";
 import { Plus, Trash2 } from "lucide-react";
+import { cn } from "~/lib/utils";
 
 export function JVInputs() {
-  const [jv, setJv] = useInputSlice("jv");
+  const { control, watch, setValue } = useFormContext<FeasibilityInputs>();
+  const jv = watch("jv");
 
-  const updateRound = (id: string, updates: Partial<typeof jv.rounds[0]>) => {
-    setJv({
-      rounds: jv.rounds.map((r) => (r.id === id ? { ...r, ...updates } : r)),
-    });
-  };
+  const { fields: roundFields, append: appendRound } = useFieldArray({
+    control,
+    name: "jv.rounds",
+  });
 
-  const updateInvestor = (roundId: string, investorId: string, amount: number) => {
-    setJv({
-      rounds: jv.rounds.map((r) =>
-        r.id === roundId
-          ? {
-              ...r,
-              investors: r.investors.map((i) =>
-                i.id === investorId ? { ...i, amount } : i
-              ),
-              totalRaised: r.investors.reduce(
-                (sum, i) => sum + (i.id === investorId ? amount : i.amount),
-                0
-              ),
-            }
-          : r
-      ),
-    });
-  };
-
-  const addRound = () => {
-    setJv({
-      rounds: [
-        ...jv.rounds,
-        {
-          id: crypto.randomUUID(),
-          name: `Round ${jv.rounds.length + 1}`,
-          totalRaised: 0,
-          investors: [],
-        },
-      ],
-    });
-  };
-
-  const addInvestor = (roundId: string) => {
-    setJv({
-      rounds: jv.rounds.map((r) =>
-        r.id === roundId
-          ? {
-              ...r,
-              investors: [
-                ...r.investors,
-                { id: crypto.randomUUID(), name: "New Investor", amount: 0 },
-              ],
-            }
-          : r
-      ),
-    });
-  };
-
-  const removeInvestor = (roundId: string, investorId: string) => {
-    setJv({
-      rounds: jv.rounds.map((r) =>
-        r.id === roundId
-          ? {
-              ...r,
-              investors: r.investors.filter((i) => i.id !== investorId),
-            }
-          : r
-      ),
-    });
-  };
-
-  const updateMoneyPartner = (id: string, updates: Partial<typeof jv.moneyPartners[0]>) => {
-    setJv({
-      moneyPartners: jv.moneyPartners.map((mp) => (mp.id === id ? { ...mp, ...updates } : mp)),
-    });
-  };
-
-  const addMoneyPartner = () => {
-    setJv({
-      moneyPartners: [
-        ...jv.moneyPartners,
-        { id: crypto.randomUUID(), name: "New Partner", amount: 0, interestRate: 15, monthsLoaned: 12 },
-      ],
-    });
-  };
-
-  const removeMoneyPartner = (id: string) => {
-    setJv({
-      moneyPartners: jv.moneyPartners.filter((mp) => mp.id !== id),
-    });
-  };
+  const { fields: partnerFields, append: appendPartner, remove: removePartner } = useFieldArray({
+    control,
+    name: "jv.moneyPartners",
+  });
 
   return (
     <Collapsible title="JV / Capital Stack">
       <div className="space-y-4">
-        <NumberField
-          label="Developer Equity"
-          value={jv.developerEquity}
-          onChange={(value) => setJv({ developerEquity: value })}
-          prefix="$"
-          min={0}
+        <Controller
+          name="jv.developerEquity"
+          control={control}
+          render={({ field, fieldState: { error } }) => (
+            <NumberField
+              {...field}
+              label="Developer Equity"
+              prefix="$"
+              min={0}
+              error={error?.message}
+            />
+          )}
         />
         <div className="grid grid-cols-2 gap-2">
-          <NumberField
-            label="Investor Profit Share"
-            value={jv.investorProfitSharePercent}
-            onChange={(value) => setJv({ investorProfitSharePercent: value })}
-            suffix="%"
-            min={0}
-            max={100}
+          <Controller
+            name="jv.investorProfitSharePercent"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Investor Profit Share"
+                suffix="%"
+                min={0}
+                max={100}
+                error={error?.message}
+              />
+            )}
           />
-          <NumberField
-            label="Developer Profit Share"
-            value={jv.developerProfitSharePercent}
-            onChange={(value) => setJv({ developerProfitSharePercent: value })}
-            suffix="%"
-            min={0}
-            max={100}
+          <Controller
+            name="jv.developerProfitSharePercent"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Developer Profit Share"
+                suffix="%"
+                min={0}
+                max={100}
+                error={error?.message}
+              />
+            )}
           />
         </div>
 
         {/* Capital Rounds */}
         <div className="border-t border-gray-200 pt-4">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Capital Rounds</h4>
-          {jv.rounds.map((round) => (
+          {roundFields.map((round, rIndex) => (
             <div key={round.id} className="border border-gray-200 rounded-lg p-3 mb-2 space-y-2">
-              <input
-                type="text"
-                value={round.name}
-                onChange={(e) => updateRound(round.id, { name: e.target.value })}
-                className="font-medium text-sm bg-transparent border-none p-0 focus:ring-0 w-full"
-              />
-              {round.investors.map((inv) => (
-                <div key={inv.id} className="flex items-center gap-2">
+              <Controller
+                name={`jv.rounds.${rIndex}.name`}
+                control={control}
+                render={({ field, fieldState: { error } }) => (
                   <input
+                    {...field}
                     type="text"
-                    value={inv.name}
-                    onChange={(e) =>
-                      setJv({
-                        rounds: jv.rounds.map((r) =>
-                          r.id === round.id
-                            ? {
-                                ...r,
-                                investors: r.investors.map((i) =>
-                                  i.id === inv.id ? { ...i, name: e.target.value } : i
-                                ),
-                              }
-                            : r
-                        ),
-                      })
-                    }
-                    className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+                    className={cn(
+                      "font-medium text-sm bg-transparent border-none p-0 focus:ring-0 w-full",
+                      error ? "text-error placeholder:text-error/50" : ""
+                    )}
                   />
-                  <NumberField
-                    label=""
-                    value={inv.amount}
-                    onChange={(value) => updateInvestor(round.id, inv.id, value)}
-                    prefix="$"
-                    min={0}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeInvestor(round.id, inv.id)}
-                    className="text-error hover:text-error/80 p-1"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                )}
+              />
+              {jv.rounds[rIndex].investors.map((inv, iIndex) => (
+                <div key={inv.id ?? `inv-${rIndex}-${iIndex}`} className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <Controller
+                      name={`jv.rounds.${rIndex}.investors.${iIndex}.name`}
+                      control={control}
+                      render={({ field, fieldState: { error } }) => (
+                        <input
+                          {...field}
+                          type="text"
+                          className={cn(
+                            "flex-1 rounded-lg border px-3 py-1.5 text-sm",
+                            error ? "border-error focus:ring-error" : "border-gray-300"
+                          )}
+                        />
+                      )}
+                    />
+                    <Controller
+                      name={`jv.rounds.${rIndex}.investors.${iIndex}.amount`}
+                      control={control}
+                      render={({ field, fieldState: { error } }) => (
+                        <NumberField
+                          {...field}
+                          label=""
+                          onChange={(val) => {
+                            field.onChange(val);
+                            // Recalculate totalRaised for the round
+                            const currentInvestors = [...jv.rounds[rIndex].investors];
+                            currentInvestors[iIndex].amount = val;
+                            const newTotal = currentInvestors.reduce((s, i) => s + i.amount, 0);
+                            setValue(`jv.rounds.${rIndex}.totalRaised`, newTotal);
+                          }}
+                          prefix="$"
+                          min={0}
+                          error={error?.message}
+                        />
+                      )}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newInvestors = jv.rounds[rIndex].investors.filter((_, i) => i !== iIndex);
+                        setValue(`jv.rounds.${rIndex}.investors`, newInvestors);
+                        setValue(`jv.rounds.${rIndex}.totalRaised`, newInvestors.reduce((s, i) => s + i.amount, 0));
+                      }}
+                      className="text-error hover:text-error/80 p-1"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
-              <Button variant="ghost" size="sm" onClick={() => addInvestor(round.id)}>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  const newInv = { id: crypto.randomUUID(), name: "New Investor", amount: 0 };
+                  setValue(`jv.rounds.${rIndex}.investors`, [...jv.rounds[rIndex].investors, newInv]);
+                }}
+              >
                 <Plus className="h-4 w-4 mr-1" /> Investor
               </Button>
             </div>
           ))}
-          <Button variant="ghost" size="sm" onClick={addRound}>
+          <Button variant="ghost" size="sm" onClick={() => appendRound({
+            id: crypto.randomUUID(),
+            name: `Round ${roundFields.length + 1}`,
+            totalRaised: 0,
+            investors: [],
+          })}>
             <Plus className="h-4 w-4 mr-1" /> Round
           </Button>
         </div>
@@ -186,46 +163,80 @@ export function JVInputs() {
         {/* Money Partners */}
         <div className="border-t border-gray-200 pt-4">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Money Partners (Debt)</h4>
-          {jv.moneyPartners.map((mp) => (
-            <div key={mp.id} className="flex items-center gap-2 mb-2">
-              <input
-                type="text"
-                value={mp.name}
-                onChange={(e) => updateMoneyPartner(mp.id, { name: e.target.value })}
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
-              />
-              <NumberField
-                label=""
-                value={mp.amount}
-                onChange={(value) => updateMoneyPartner(mp.id, { amount: value })}
-                prefix="$"
-                min={0}
-              />
-              <NumberField
-                label=""
-                value={mp.interestRate}
-                onChange={(value) => updateMoneyPartner(mp.id, { interestRate: value })}
-                suffix="%"
-                min={0}
-                max={100}
-              />
-              <NumberField
-                label=""
-                value={mp.monthsLoaned}
-                onChange={(value) => updateMoneyPartner(mp.id, { monthsLoaned: value })}
-                suffix="mo"
-                min={1}
-              />
-              <button
-                type="button"
-                onClick={() => removeMoneyPartner(mp.id)}
-                className="text-error hover:text-error/80 p-1"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+          {partnerFields.map((mp, index) => (
+            <div key={mp.id} className="flex flex-col gap-1 mb-2">
+              <div className="flex items-center gap-2">
+                <Controller
+                  name={`jv.moneyPartners.${index}.name`}
+                  control={control}
+                  render={({ field, fieldState: { error } }) => (
+                    <input
+                      {...field}
+                      type="text"
+                      className={cn(
+                        "flex-1 rounded-lg border px-3 py-1.5 text-sm",
+                        error ? "border-error focus:ring-error" : "border-gray-300"
+                      )}
+                    />
+                  )}
+                />
+                <Controller
+                  name={`jv.moneyPartners.${index}.amount`}
+                  control={control}
+                  render={({ field, fieldState: { error } }) => (
+                    <NumberField
+                      {...field}
+                      label=""
+                      prefix="$"
+                      min={0}
+                      error={error?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name={`jv.moneyPartners.${index}.interestRate`}
+                  control={control}
+                  render={({ field, fieldState: { error } }) => (
+                    <NumberField
+                      {...field}
+                      label=""
+                      suffix="%"
+                      min={0}
+                      max={100}
+                      error={error?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name={`jv.moneyPartners.${index}.monthsLoaned`}
+                  control={control}
+                  render={({ field, fieldState: { error } }) => (
+                    <NumberField
+                      {...field}
+                      label=""
+                      suffix="mo"
+                      min={1}
+                      error={error?.message}
+                    />
+                  )}
+                />
+                <button
+                  type="button"
+                  onClick={() => removePartner(index)}
+                  className="text-error hover:text-error/80 p-1"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           ))}
-          <Button variant="ghost" size="sm" onClick={addMoneyPartner}>
+          <Button variant="ghost" size="sm" onClick={() => appendPartner({ 
+            id: crypto.randomUUID(), 
+            name: "New Partner", 
+            amount: 0, 
+            interestRate: 15, 
+            monthsLoaned: 12 
+          })}>
             <Plus className="h-4 w-4 mr-1" /> Partner
           </Button>
         </div>

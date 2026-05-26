@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { cn } from "~/lib/utils";
 import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Input } from "~/components/ui/Input";
@@ -6,29 +7,36 @@ import { Button } from "~/components/ui/Button";
 import { GSTToggle } from "~/components/ui/GSTToggle";
 import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
 import { AddressAutocomplete } from "~/components/inputs/AddressAutocomplete";
-import { useAppStore } from "~/stores/appStore";
-import { useShallow } from "zustand/react/shallow";
+import { useFormContext, Controller, useFieldArray } from "react-hook-form";
+import type { FeasibilityInputs } from "~/types";
 import { calculateStampDuty, AUSTRALIAN_STATES, formatCurrency } from "~/lib/calculations/stampDuty";
-import { calculateLandTax, countLandTaxPayments, calculateProjectLandTax } from "~/lib/constants/landTax";
+import { calculateLandTax, countLandTaxPayments } from "~/lib/constants/landTax";
 import { Plus, Trash2, Info } from "lucide-react";
 
 export function PropertyInputs() {
-  const property = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.property));
-  const development = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.development));
-  const updateActiveInputs = useAppStore((s) => s.updateActiveInputs);
+  const { control, watch, setValue } = useFormContext<FeasibilityInputs>();
+  
+  // Watch necessary fields for derivations
+  const property = watch("property");
+  const development = watch("development");
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "property.costs",
+  });
 
   const stampDuty = useMemo(
-    () => calculateStampDuty(property!.location, property!.purchasePrice),
-    [property!.location, property!.purchasePrice]
+    () => calculateStampDuty(property.location, property.purchasePrice),
+    [property.location, property.purchasePrice]
   );
 
   // Fallback: if landValue is missing/NaN/0, use purchasePrice (matching calc engine)
-  const effectiveLandValue = property!.landValue || property!.purchasePrice || 0;
+  const effectiveLandValue = property.landValue || property.purchasePrice || 0;
 
   const landTaxAnnual = useMemo(() => {
-    if (!property!.location || !effectiveLandValue) return 0;
-    return calculateLandTax(property!.location, effectiveLandValue, false);
-  }, [property!.location, effectiveLandValue]);
+    if (!property.location || !effectiveLandValue) return 0;
+    return calculateLandTax(property.location, effectiveLandValue, false);
+  }, [property.location, effectiveLandValue]);
 
   const timelineMonths = development?.timeline?.timelineMonths ?? 12;
   const settlementDate = development?.timeline?.settlementDate;
@@ -37,39 +45,11 @@ export function PropertyInputs() {
   const landTaxTotal = landTaxAnnual * landTaxPayments;
 
   // Filter out any legacy stamp-duty or land-tax line items from the editable list
-  const editableCosts = property.costs.filter((c) => {
-    const name = c.name.toLowerCase();
-    return !(name.includes("stamp") || name.includes("duty") || name.includes("land tax"));
-  });
-
-  const updateCost = (id: string, updates: Partial<{ name: string; amount: number; isPercentage: boolean; gstTreatment: "free" | "inclusive" | "exclusive" }>) => {
-    updateActiveInputs({
-      property: {
-        ...property,
-        costs: property.costs.map((c) => (c.id === id ? { ...c, ...updates } : c)),
-      },
-    });
-  };
-
-  const addCost = () => {
-    updateActiveInputs({
-      property: {
-        ...property,
-        costs: [
-          ...property.costs,
-          { id: crypto.randomUUID(), name: "New Cost", amount: 0, isPercentage: false, gstTreatment: "inclusive" },
-        ],
-      },
-    });
-  };
-
-  const removeCost = (id: string) => {
-    updateActiveInputs({
-      property: {
-        ...property,
-        costs: property.costs.filter((c) => c.id !== id),
-      },
-    });
+  // Note: with FieldArray, we use the fields directly. 
+  // We'll just hide them in the render loop if they match.
+  const isLegacyCost = (name: string) => {
+    const n = name.toLowerCase();
+    return n.includes("stamp") || n.includes("duty") || n.includes("land tax");
   };
 
   const handleAddressSelect = (parsed: {
@@ -81,15 +61,10 @@ export function PropertyInputs() {
     postcode: string;
     country: string;
   }) => {
-    updateActiveInputs({
-      property: {
-        ...property,
-        address: parsed.formattedAddress,
-        suburb: parsed.suburb,
-        postcode: parsed.postcode,
-        location: parsed.state,
-      },
-    });
+    setValue("property.address", parsed.formattedAddress);
+    setValue("property.suburb", parsed.suburb);
+    setValue("property.postcode", parsed.postcode);
+    setValue("property.location", parsed.state);
   };
 
   return (
@@ -105,70 +80,103 @@ export function PropertyInputs() {
               placeholder="Start typing address..."
             />
           ) : (
-            <Input
-              value={property.address}
-              onChange={(e) =>
-                updateActiveInputs({ property: { ...property, address: e.target.value } })
-              }
-              placeholder="e.g. 123 High Street"
+            <Controller
+              name="property.address"
+              control={control}
+              render={({ field, fieldState: { error } }) => (
+                <Input
+                  {...field}
+                  placeholder="e.g. 123 High Street"
+                  error={error?.message}
+                />
+              )}
             />
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Suburb"
-              value={property.suburb}
-              onChange={(e) =>
-                updateActiveInputs({ property: { ...property, suburb: e.target.value } })
-              }
-              placeholder="e.g. Frankston South"
+            <Controller
+              name="property.suburb"
+              control={control}
+              render={({ field, fieldState: { error } }) => (
+                <Input
+                  {...field}
+                  label="Suburb"
+                  placeholder="e.g. Frankston South"
+                  error={error?.message}
+                />
+              )}
             />
-            <Input
-              label="Postcode"
-              value={property.postcode}
-              onChange={(e) =>
-                updateActiveInputs({ property: { ...property, postcode: e.target.value } })
-              }
-              placeholder="e.g. 3199"
+            <Controller
+              name="property.postcode"
+              control={control}
+              render={({ field, fieldState: { error } }) => (
+                <Input
+                  {...field}
+                  label="Postcode"
+                  placeholder="e.g. 3199"
+                  error={error?.message}
+                />
+              )}
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               State
             </label>
-            <select
-              value={property.location}
-              onChange={(e) =>
-                updateActiveInputs({ property: { ...property, location: e.target.value } })
-              }
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            >
-              {AUSTRALIAN_STATES.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
+            <Controller
+              name="property.location"
+              control={control}
+              render={({ field, fieldState: { error } }) => (
+                <>
+                  <select
+                    {...field}
+                    className={cn(
+                      "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent",
+                      error && "border-error focus:border-error focus:ring-error"
+                    )}
+                  >
+                    {AUSTRALIAN_STATES.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                  {error && <p className="text-xs text-error mt-1">{error.message}</p>}
+                </>
+              )}
+            />
           </div>
         </div>
 
-        <NumberField
-          label="Purchase Price"
-          value={property.purchasePrice}
-          onChange={(value) => updateActiveInputs({ property: { ...property, purchasePrice: value } })}
-          prefix="$"
-          min={0}
+        <Controller
+          name="property.purchasePrice"
+          control={control}
+          render={({ field, fieldState: { error } }) => (
+            <NumberField
+              {...field}
+              label="Purchase Price"
+              prefix="$"
+              min={0}
+              error={error?.message}
+            />
+          )}
         />
 
         {/* Land Value with tooltip */}
         <div className="space-y-1">
           <div className="flex items-center gap-1">
-            <NumberField
-              label="Unimproved Land Value"
-              value={property.landValue}
-              onChange={(value) => updateActiveInputs({ property: { ...property, landValue: value } })}
-              prefix="$"
-              min={0}
+            <Controller
+              name="property.landValue"
+              control={control}
+              render={({ field, fieldState: { error } }) => (
+                <NumberField
+                  {...field}
+                  label="Unimproved Land Value"
+                  prefix="$"
+                  min={0}
+                  error={error?.message}
+                />
+              )}
             />
             <div className="group relative">
               <Info className="h-4 w-4 text-gray-400 cursor-help" />
@@ -180,12 +188,18 @@ export function PropertyInputs() {
           </div>
         </div>
 
-        <NumberField
-          label="Total Land Area"
-          value={property.landArea}
-          onChange={(value) => updateActiveInputs({ property: { ...property, landArea: value } })}
-          suffix="sqm"
-          min={0}
+        <Controller
+          name="property.landArea"
+          control={control}
+          render={({ field, fieldState: { error } }) => (
+            <NumberField
+              {...field}
+              label="Total Land Area"
+              suffix="sqm"
+              min={0}
+              error={error?.message}
+            />
+          )}
         />
 
         {/* Auto-calculated Stamp Duty */}
@@ -201,12 +215,18 @@ export function PropertyInputs() {
 
         {/* Land Tax Toggle */}
         <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="land-tax-auto"
-            checked={property.landTaxAuto}
-            onChange={(e) => updateActiveInputs({ property: { ...property, landTaxAuto: e.target.checked } })}
-            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-accent"
+          <Controller
+            name="property.landTaxAuto"
+            control={control}
+            render={({ field }) => (
+              <input
+                type="checkbox"
+                id="land-tax-auto"
+                checked={field.value}
+                onChange={(e) => field.onChange(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-accent"
+              />
+            )}
           />
           <label htmlFor="land-tax-auto" className="text-sm text-gray-700">
             Auto-calculate land tax from {property.location} rates
@@ -214,12 +234,19 @@ export function PropertyInputs() {
         </div>
 
         {!property.landTaxAuto && (
-          <NumberField
-            label="Custom Annual Land Tax"
-            value={property.landTaxOverride ?? 0}
-            onChange={(value) => updateActiveInputs({ property: { ...property, landTaxOverride: value } })}
-            prefix="$"
-            min={0}
+          <Controller
+            name="property.landTaxOverride"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Custom Annual Land Tax"
+                value={field.value ?? 0}
+                prefix="$"
+                min={0}
+                error={error?.message}
+              />
+            )}
           />
         )}
 
@@ -241,57 +268,87 @@ export function PropertyInputs() {
         <div className="border-t border-gray-200 pt-4">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Acquisition Costs</h4>
           <div className="space-y-2">
-            {editableCosts.map((cost) => (
-              <div key={cost.id} className="flex items-center gap-2 flex-wrap">
-                <input
-                  type="text"
-                  value={cost.name}
-                  onChange={(e) => updateCost(cost.id, { name: e.target.value })}
-                  className="flex-1 min-w-[120px] rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
-                  placeholder="Cost name"
-                />
-                <div className="flex items-center">
-                  <NumberField
-                    label=""
-                    value={cost.amount}
-                    onChange={(value) => updateCost(cost.id, { amount: value })}
-                    prefix={cost.isPercentage ? "" : "$"}
-                    suffix={cost.isPercentage ? "%" : ""}
-                    min={0}
+            {fields.map((cost, index) => {
+              if (isLegacyCost(cost.name)) return null;
+              return (
+                <div key={cost.id} className="flex items-center gap-2 flex-wrap">
+                  <Controller
+                    name={`property.costs.${index}.name`}
+                    control={control}
+                    render={({ field, fieldState: { error } }) => (
+                      <div className="flex-1 min-w-[120px]">
+                        <input
+                          {...field}
+                          type="text"
+                          className={cn(
+                            "w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm",
+                            error && "border-error focus:border-error focus:ring-error"
+                          )}
+                          placeholder="Cost name"
+                        />
+                        {error && <p className="text-[10px] text-error mt-0.5">{error.message}</p>}
+                      </div>
+                    )}
                   />
-                  {cost.isPercentage && (
-                    <ComputedDollarDisplay
-                      percentage={cost.amount}
-                      baseAmount={property.purchasePrice}
+                  <div className="flex items-center">
+                    <Controller
+                      name={`property.costs.${index}.amount`}
+                      control={control}
+                      render={({ field, fieldState: { error } }) => (
+                        <NumberField
+                          {...field}
+                          label=""
+                          prefix={property.costs[index].isPercentage ? "" : "$"}
+                          suffix={property.costs[index].isPercentage ? "%" : ""}
+                          min={0}
+                          error={error?.message}
+                        />
+                      )}
                     />
-                  )}
+                    {property.costs[index].isPercentage && (
+                      <ComputedDollarDisplay
+                        percentage={property.costs[index].amount}
+                        baseAmount={property.purchasePrice}
+                      />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setValue(`property.costs.${index}.isPercentage`, !property.costs[index].isPercentage)}
+                    className={`px-2 py-1.5 text-xs rounded-md border ${
+                      property.costs[index].isPercentage
+                        ? "bg-primary text-white border-primary"
+                        : "bg-white text-gray-600 border-gray-300"
+                    }`}
+                  >
+                    %
+                  </button>
+                  <Controller
+                    name={`property.costs.${index}.gstTreatment`}
+                    control={control}
+                    render={({ field }) => (
+                      <GSTToggle
+                        {...field}
+                      />
+                    )}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => remove(index)}
+                    className="text-error hover:text-error/80 p-1"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => updateCost(cost.id, { isPercentage: !cost.isPercentage })}
-                  className={`px-2 py-1.5 text-xs rounded-md border ${
-                    cost.isPercentage
-                      ? "bg-primary text-white border-primary"
-                      : "bg-white text-gray-600 border-gray-300"
-                  }`}
-                >
-                  %
-                </button>
-                <GSTToggle
-                  value={cost.gstTreatment}
-                  onChange={(value) => updateCost(cost.id, { gstTreatment: value })}
-                />
-                <button
-                  type="button"
-                  onClick={() => removeCost(cost.id)}
-                  className="text-error hover:text-error/80 p-1"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
-          <Button variant="ghost" size="sm" onClick={addCost} className="mt-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => append({ id: crypto.randomUUID(), name: "New Cost", amount: 0, isPercentage: false, gstTreatment: "inclusive" })} 
+            className="mt-2"
+          >
             <Plus className="h-4 w-4 mr-1" /> Add Cost
           </Button>
         </div>

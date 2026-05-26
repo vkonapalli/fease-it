@@ -6,6 +6,7 @@ import { useAppStore } from "~/stores/appStore";
 import { resolveActions, setDeep } from "~/lib/ai/tools";
 import { getAllStrategies, createScenariosFromStrategy } from "~/lib/templates";
 import { Button } from "~/components/ui/Button";
+import { useRevalidator } from "react-router";
 import type { FeasibilityInputs, ProjectScenario } from "~/types";
 import type { Scenario } from "~/stores/appStore";
 import {
@@ -99,6 +100,7 @@ function AIChatCore({
   projectId,
   activeScenarioId,
   projectName,
+  currentInputs,
   onClose,
 }: {
   initialMessages: UIMessage[];
@@ -106,6 +108,7 @@ function AIChatCore({
   projectId: string | null;
   activeScenarioId: string | null;
   projectName: string;
+  currentInputs: FeasibilityInputs | null;
   onClose: () => void;
 }) {
   const [inputText, setInputText] = useState("");
@@ -118,9 +121,11 @@ function AIChatCore({
     projectId: projectId ?? null,
     activeScenarioId: activeScenarioId ?? null,
     projectName: projectName || "Untitled Project",
+    currentInputs: currentInputs ?? null,
   };
 
   const storageKey = getStorageKey(projectId);
+  const revalidator = useRevalidator();
 
   const handleThreadId = useCallback(
     (tid: string | null) => {
@@ -156,6 +161,7 @@ function AIChatCore({
       processedRef.current.add(key);
 
       const pendingActions: ParsedAction[] = [];
+      let serverExecuted = false;
 
       for (const part of message.parts) {
         if (part.type === "dynamic-tool") {
@@ -172,14 +178,23 @@ function AIChatCore({
           part.toolName === "applyProjectActions" &&
           part.state === "output-available"
         ) {
-          const output = part.output as { actions?: unknown[] };
-          if (output?.actions && Array.isArray(output.actions)) {
+          const output = part.output as { actions?: unknown[]; serverExecuted?: boolean };
+          if (output?.serverExecuted) {
+            serverExecuted = true;
+          } else if (output?.actions && Array.isArray(output.actions)) {
             const resolved = resolveActions(
               output.actions as Parameters<typeof resolveActions>[0]
             );
             pendingActions.push(...resolved);
           }
         }
+      }
+
+      if (serverExecuted) {
+        revalidator.revalidate();
+        setToast("Changes saved to server");
+        setTimeout(() => setToast(null), 4000);
+        return;
       }
 
       if (pendingActions.length === 0) return;
@@ -477,7 +492,7 @@ function AIChatCore({
    Wrapper component that loads chat history from
    the server before mounting the core chat UI.
    ──────────────────────────────────────────────── */
-export function AIChat() {
+export function AIChat({ currentInputs }: { currentInputs?: FeasibilityInputs | null }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
@@ -557,6 +572,7 @@ export function AIChat() {
       projectId={projectId}
       activeScenarioId={activeScenarioId}
       projectName={projectName}
+      currentInputs={currentInputs ?? null}
       onClose={() => setIsOpen(false)}
     />
   );

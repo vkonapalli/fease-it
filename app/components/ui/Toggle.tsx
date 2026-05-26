@@ -5,13 +5,17 @@ interface ToggleProps {
   value: string | number | boolean;
   onChange: (value: string | number | boolean) => void;
   label?: string;
+  error?: string;
 }
 
-export function Toggle({ options, value, onChange, label }: ToggleProps) {
+export function Toggle({ options, value, onChange, label, error }: ToggleProps) {
   return (
     <div className="space-y-1">
       {label && <label className="block text-sm font-medium text-gray-700">{label}</label>}
-      <div className="inline-flex rounded-lg bg-gray-100 p-1">
+      <div className={cn(
+        "inline-flex rounded-lg bg-gray-100 p-1",
+        error && "ring-1 ring-error"
+      )}>
         {options.map((option) => (
           <button
             key={String(option.value)}
@@ -28,6 +32,7 @@ export function Toggle({ options, value, onChange, label }: ToggleProps) {
           </button>
         ))}
       </div>
+      {error && <p className="text-xs text-error">{error}</p>}
     </div>
   );
 }

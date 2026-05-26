@@ -1,6 +1,6 @@
 import { Toggle } from "~/components/ui/Toggle";
-import { useScenarioInput } from "~/stores/feasibilityStore";
-import type { ProjectScenario } from "~/types";
+import { useFormContext, Controller } from "react-hook-form";
+import type { FeasibilityInputs, ProjectScenario } from "~/types";
 
 const SCENARIO_OPTIONS: { label: string; value: ProjectScenario }[] = [
   { label: "Build & Sell", value: "build-sell" },
@@ -12,15 +12,21 @@ const SCENARIO_OPTIONS: { label: string; value: ProjectScenario }[] = [
 ];
 
 export function ScenarioSwitcher() {
-  const [scenario, setScenario] = useScenarioInput();
+  const { control } = useFormContext<FeasibilityInputs>();
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4">
-      <Toggle
-        label="Project Scenario"
-        options={SCENARIO_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
-        value={scenario}
-        onChange={(value) => setScenario(value as ProjectScenario)}
+      <Controller
+        name="scenario"
+        control={control}
+        render={({ field, fieldState: { error } }) => (
+          <Toggle
+            {...field}
+            label="Project Scenario"
+            options={SCENARIO_OPTIONS.map((o) => ({ label: o.label, value: o.value }))}
+            error={error?.message}
+          />
+        )}
       />
     </div>
   );

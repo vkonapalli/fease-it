@@ -1,6 +1,7 @@
+import { useState, useCallback, useMemo } from "react";
+import { z } from "zod";
 import { Input } from "./Input";
-import { useState, useEffect } from "react";
-import { formatCurrency, parseCurrency } from "~/lib/utils";
+import { formatCurrency } from "~/lib/utils";
 
 interface NumberFieldProps {
   label: string;
@@ -15,6 +16,35 @@ interface NumberFieldProps {
   step?: number;
 }
 
+function buildParser(prefix?: string, min?: number, max?: number) {
+  let num = z.number();
+  if (min !== undefined) num = num.min(min);
+  if (max !== undefined) num = num.max(max);
+
+  return z
+    .string()
+    .transform((val) => {
+      const cleaned = prefix === "$" ? val.replace(/[$,]/g, "") : val.replace(/,/g, "");
+      const parsed = parseFloat(cleaned);
+      return Number.isFinite(parsed) ? parsed : 0;
+    })
+    .pipe(num);
+}
+
+function toDisplay(value: number, prefix?: string): string {
+  if (prefix === "$") {
+    return formatCurrency(value);
+  }
+  return value.toString();
+}
+
+function toEdit(value: number, prefix?: string): string {
+  if (prefix === "$") {
+    return Math.round(value).toString();
+  }
+  return value.toString();
+}
+
 export function NumberField({
   label,
   value,
@@ -25,61 +55,34 @@ export function NumberField({
   error,
   min,
   max,
-  step = 1,
 }: NumberFieldProps) {
-  const [displayValue, setDisplayValue] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isEditing) return;
-    if (prefix === "$") {
-      setDisplayValue(value ? formatCurrency(value) : "");
-    } else if (suffix === "%") {
-      // For percentages, show with decimals
-      setDisplayValue(value !== undefined && value !== null ? value.toString() : "");
-    } else {
-      setDisplayValue(value !== undefined && value !== null ? value.toString() : "");
-    }
-  }, [value, prefix, suffix, isEditing]);
+  const displayValue = isEditing && editValue !== null ? editValue : toDisplay(value, prefix);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    let numValue: number;
+  const parser = useMemo(() => buildParser(prefix, min, max), [prefix, min, max]);
 
-    if (prefix === "$") {
-      numValue = parseCurrency(raw);
-    } else {
-      // Strip commas for numeric parsing
-      numValue = parseFloat(raw.replace(/,/g, "")) || 0;
-    }
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const raw = e.target.value;
+      setEditValue(raw);
 
-    if (min !== undefined && numValue < min) numValue = min;
-    if (max !== undefined && numValue > max) numValue = max;
+      const result = parser.safeParse(raw);
+      onChange(result.success ? result.data : 0);
+    },
+    [parser, onChange]
+  );
 
-    setDisplayValue(raw);
-    onChange(numValue);
-  };
-
-  const handleFocus = () => {
+  const handleFocus = useCallback(() => {
     setIsEditing(true);
-    // Show raw value for editing
-    if (prefix === "$") {
-      setDisplayValue(value ? Math.round(value).toString() : "");
-    } else {
-      setDisplayValue(value !== undefined && value !== null ? value.toString() : "");
-    }
-  };
+    setEditValue(toEdit(value, prefix));
+  }, [value, prefix]);
 
-  const handleBlur = () => {
+  const handleBlur = useCallback(() => {
     setIsEditing(false);
-    if (prefix === "$") {
-      setDisplayValue(value ? formatCurrency(value) : "");
-    } else if (suffix === "%") {
-      setDisplayValue(value !== undefined && value !== null ? value.toString() : "");
-    } else {
-      setDisplayValue(value !== undefined && value !== null ? value.toString() : "");
-    }
-  };
+    setEditValue(null);
+  }, []);
 
   return (
     <Input

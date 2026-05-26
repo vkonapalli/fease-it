@@ -1,6 +1,7 @@
 import { redirect } from "react-router";
 import { getSupabaseServerClient } from "~/lib/supabase/server";
 import { isSupabaseConfigured } from "~/lib/supabase/client";
+import { getSession } from "~/lib/sessions.server";
 
 /**
  * Require an authenticated user in a loader or action.
@@ -16,14 +17,14 @@ export async function requireAuth(request: Request) {
   }
 
   const { supabase, headers } = getSupabaseServerClient(request);
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  const session = await getSession(request.headers.get("cookie"));
+  const userId = session.get("sub");
 
-  if (error || !user) {
+  if (!userId) {
     throw redirect("/login", { headers });
   }
+
+  const user = { id: userId, email: session.get("email") };
 
   return { user, supabase, headers };
 }
@@ -38,9 +39,14 @@ export async function getAuthUser(request: Request) {
   }
 
   const { supabase, headers } = getSupabaseServerClient(request);
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const session = await getSession(request.headers.get("cookie"));
+  const userId = session.get("sub");
+
+  if (!userId) {
+    return { user: null, supabase, headers };
+  }
+
+  const user = { id: userId, email: session.get("email") };
 
   return { user, supabase, headers };
 }

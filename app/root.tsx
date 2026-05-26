@@ -6,11 +6,14 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLoaderData,
 } from "react-router";
 
 import type { Route } from "./+types/root";
 import "./app.css";
 import { useAppStore } from "~/stores/appStore";
+import { getAuthUser } from "~/lib/auth.server";
+import { isSupabaseConfigured } from "~/lib/supabase/client";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -24,6 +27,11 @@ export const links: Route.LinksFunction = () => [
     href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
   },
 ];
+
+export async function loader({ request }: Route.LoaderArgs) {
+  const { user } = await getAuthUser(request);
+  return { user, isConfigured: isSupabaseConfigured() };
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -43,7 +51,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function App() {
+export default function App({ loaderData }: Route.ComponentProps) {
+  const { user } = loaderData;
+
   useEffect(() => {
     useAppStore.persist.rehydrate();
   }, []);
