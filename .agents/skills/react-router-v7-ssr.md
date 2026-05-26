@@ -1,6 +1,6 @@
 # React Router v7 SSR with Vite
 
-Use this skill when setting up a new React app with server-side rendering using React Router v7 (framework mode) and Vite, or when the user references "the regional-assistant SSR pattern".
+Use this skill when setting up a new React app with server-side rendering using React Router v7 (framework mode) and Vite, or when the user references "the SSR pattern".
 
 ## Architecture Overview
 

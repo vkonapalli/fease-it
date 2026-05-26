@@ -3,26 +3,19 @@ import type { Route } from "./+types/api.chat";
 import { streamText, stepCountIs, convertToModelMessages, type UIMessage } from "ai";
 import { createMoonshotAI } from "@ai-sdk/moonshotai";
 import { getSupabaseServerClient } from "~/lib/supabase/server";
+import { isSupabaseConfigured } from "~/lib/supabase/client";
 import { makeService, makeSupabasePersistenceClient } from "@fease-it/convo";
 import type { ToolCallRecord, ConversationTurn } from "@fease-it/convo";
 import {
-  getInputsForStrategy,
-  calculateScenarioSummary,
-  listStrategies,
-  estimateStampDuty,
-  applyProjectActions,
-  runCalculation,
+  getTools,
   SYSTEM_PROMPT,
+  type ProjectActionExecutor,
+  applyOverrides,
+  setDeep,
 } from "~/lib/ai/tools";
-
-const tools = {
-  getInputsForStrategy,
-  calculateScenarioSummary,
-  listStrategies,
-  estimateStampDuty,
-  applyProjectActions,
-  runCalculation,
-};
+import * as db from "~/lib/db.server";
+import { createInputsForStrategy, getAllStrategies, createScenariosFromStrategy } from "~/lib/templates";
+import type { ProjectScenario, FeasibilityInputs } from "~/types";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
@@ -30,6 +23,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   if (!threadId) {
     return redirect("/");
+  }
+
+  if (!isSupabaseConfigured()) {
+    return new Response(JSON.stringify({ error: "Supabase not configured" }), {
+      status: 501,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const { supabase, headers } = getSupabaseServerClient(request);
@@ -71,6 +71,13 @@ async function handleChat(
   },
   request: Request
 ) {
+  if (!isSupabaseConfigured()) {
+    return new Response(JSON.stringify({ error: "Supabase not configured" }), {
+      status: 501,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const { supabase, headers } = getSupabaseServerClient(request);
 
   const {
@@ -91,6 +98,7 @@ async function handleChat(
   const clientMessages = body.messages ?? [];
   const metadata = body.metadata ?? {};
   let threadId = body.threadId ?? null;
+  const projectId = (metadata.projectId as string | undefined) ?? null;
 
   // Ensure we have a thread
   if (!threadId) {
@@ -100,11 +108,69 @@ async function handleChat(
 
     const thread = await service.storeThread({
       userId: user.id,
-      projectId: (metadata.projectId as string | undefined) ?? null,
+      projectId,
       title: firstUserText?.slice(0, 60) ?? "New Chat",
     });
     threadId = thread.id;
   }
+
+  const activeScenarioId = (metadata.activeScenarioId as string | undefined) ?? null;
+
+  const executeActions: ProjectActionExecutor = async (actions) => {
+    if (!projectId) return null;
+
+    const results = [];
+    for (const action of actions) {
+      if (action.type === "create_scenario") {
+        const baseInputs = createInputsForStrategy(action.strategy as ProjectScenario);
+        const inputs = applyOverrides(baseInputs as unknown as Record<string, unknown>, action.overrides) as unknown as FeasibilityInputs;
+        const scenario = await db.createScenario(
+          request,
+          user.id,
+          projectId,
+          action.name || `New ${action.strategy}`,
+          inputs,
+          0
+        );
+        results.push({ type: "create_scenario", id: scenario.id, name: scenario.name });
+      } else if (action.type === "update_inputs" && activeScenarioId) {
+        const scenarios = await db.getScenarios(request, user.id, projectId);
+        const active = scenarios.find((s) => s.id === activeScenarioId);
+        if (active) {
+          const merged = structuredClone(active.inputs) as unknown as Record<string, unknown>;
+          for (const [path, value] of Object.entries(action.changes)) {
+            setDeep(merged, path, value);
+          }
+          await db.updateScenario(request, user.id, projectId, activeScenarioId, {
+            inputs: merged as unknown as FeasibilityInputs,
+          });
+          results.push({ type: "update_inputs", id: activeScenarioId });
+        }
+      } else if (action.type === "create_from_strategy") {
+        const strategies = getAllStrategies();
+        const strategy = strategies.find((p) => p.id === action.strategyId);
+        if (strategy) {
+          const scenarios = createScenariosFromStrategy(strategy, action.selectedIds);
+          for (const s of scenarios) {
+            const scenario = await db.createScenario(request, user.id, projectId, s.name, s.inputs, 0);
+            results.push({ type: "create_scenario", id: scenario.id, name: scenario.name });
+          }
+        }
+      }
+    }
+
+    if (results.length > 0) {
+      return {
+        applied: true,
+        serverExecuted: true,
+        results,
+        message: "Actions were successfully applied to the database.",
+      };
+    }
+    return null;
+  };
+
+  const tools = getTools(executeActions);
 
   const moonshotai = createMoonshotAI({
     baseURL: process.env.MOONSHOT_BASE_URL || undefined,
@@ -209,6 +275,13 @@ async function handleSave(
   },
   request: Request
 ) {
+  if (!isSupabaseConfigured()) {
+    return new Response(JSON.stringify({ error: "Supabase not configured" }), {
+      status: 501,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const { supabase, headers } = getSupabaseServerClient(request);
   const { data: { user } } = await supabase.auth.getUser();
 

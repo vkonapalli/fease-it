@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { FeasibilityInputs, Strategy } from "~/types";
 import { createBaseInputs } from "~/lib/templates";
+import { isEqual } from "~/lib/utils";
 
 export interface Scenario {
   id: string;
@@ -12,6 +13,8 @@ export interface Scenario {
   synced: boolean;
   // remoteId is the UUID from Supabase (null if only local)
   remoteId: string | null;
+  // isPlaceholder indicates if this is the initial default scenario
+  isPlaceholder?: boolean;
 }
 
 interface AppState {
@@ -27,6 +30,7 @@ interface AppState {
   updateScenario: (id: string, updates: Partial<Omit<Scenario, "id">>) => void;
   removeScenario: (id: string) => void;
   setActiveScenario: (id: string) => void;
+  markScenarioSynced: (localId: string, remoteId: string) => void;
   duplicateScenario: (id: string) => void;
   duplicateScenarioWithOptions: (
     id: string,
@@ -68,6 +72,7 @@ function createDefaultScenario(): Scenario {
     sortOrder: 0,
     synced: false,
     remoteId: null,
+    isPlaceholder: true,
   };
 }
 
@@ -85,16 +90,38 @@ export const useAppStore = create<AppState>()(
 
       addScenario: (scenario) =>
         set((state) => ({
-          scenarios: [...state.scenarios, scenario],
+          scenarios: [...state.scenarios, { ...scenario, isPlaceholder: false }],
           activeScenarioId: scenario.id,
         })),
 
       updateScenario: (id, updates) =>
-        set((state) => ({
-          scenarios: state.scenarios.map((s) =>
-            s.id === id ? { ...s, ...updates, synced: false } : s
-          ),
-        })),
+        set((state) => {
+          const scenarioIndex = state.scenarios.findIndex(s => s.id === id);
+          if (scenarioIndex === -1) return state;
+
+          const currentScenario = state.scenarios[scenarioIndex];
+
+          // Basic equality check for updates to avoid unnecessary renders
+          let hasChanges = false;
+          for (const key in updates) {
+            if (key === "inputs") {
+              if (!isEqual(updates.inputs, currentScenario.inputs)) {
+                hasChanges = true;
+                break;
+              }
+            } else if (updates[key as keyof typeof updates] !== currentScenario[key as keyof typeof currentScenario]) {
+              hasChanges = true;
+              break;
+            }
+          }
+          if (!hasChanges) return state;
+
+          return {
+            scenarios: state.scenarios.map((s) =>
+              s.id === id ? { ...s, ...updates, synced: false, isPlaceholder: false } : s
+            ),
+          };
+        }),
 
       removeScenario: (id) =>
         set((state) => {
@@ -108,6 +135,13 @@ export const useAppStore = create<AppState>()(
 
       setActiveScenario: (id) => set({ activeScenarioId: id }),
 
+      markScenarioSynced: (localId, remoteId) =>
+        set((state) => ({
+          scenarios: state.scenarios.map((s) =>
+            s.id === localId ? { ...s, remoteId, synced: true } : s
+          ),
+        })),
+
       duplicateScenario: (id) =>
         set((state) => {
           const source = state.scenarios.find((s) => s.id === id);
@@ -119,6 +153,7 @@ export const useAppStore = create<AppState>()(
             sortOrder: Math.max(...state.scenarios.map((s) => s.sortOrder), 0) + 1,
             synced: false,
             remoteId: null,
+            isPlaceholder: false,
           };
           return {
             scenarios: [...state.scenarios, copy],
@@ -159,6 +194,7 @@ export const useAppStore = create<AppState>()(
             sortOrder: Math.max(...state.scenarios.map((s) => s.sortOrder), 0) + 1,
             synced: false,
             remoteId: null,
+            isPlaceholder: false,
           };
           return {
             scenarios: [...state.scenarios, copy],
@@ -189,7 +225,7 @@ export const useAppStore = create<AppState>()(
           return {
             scenarios: state.scenarios.map((s) =>
               s.id === activeId
-                ? { ...s, inputs: { ...s.inputs, ...inputs }, synced: false }
+                ? { ...s, inputs: { ...s.inputs, ...inputs }, synced: false, isPlaceholder: false }
                 : s
             ),
           };
@@ -226,11 +262,18 @@ export const useAppStore = create<AppState>()(
       setHasHydrated: (state) => set({ _hasHydrated: state }),
       hydrateFromServer: (projectId, projectName, serverScenarios) => {
         set((state) => {
-          // 1. Keep local-only scenarios (those without a remoteId)
-          const localOnlyScenarios = state.scenarios.filter((s) => !s.remoteId);
+          const isSameProject = state.projectId === projectId;
           
-          // 2. Identify local scenarios that have unsynced changes
-          const unsyncedScenarios = state.scenarios.filter((s) => s.remoteId && !s.synced);
+          // 1. Keep local-only scenarios (those without a remoteId) that are not placeholders,
+          // but ONLY if we are hydrating the same project. If we switched projects, discard them.
+          const localOnlyScenarios = isSameProject 
+            ? state.scenarios.filter((s) => !s.remoteId && !s.isPlaceholder)
+            : [];
+          
+          // 2. Identify local scenarios that have unsynced changes, again only if same project
+          const unsyncedScenarios = isSameProject
+            ? state.scenarios.filter((s) => s.remoteId && !s.synced)
+            : [];
           
           // 3. Start with server scenarios
           const mergedScenarios = [...serverScenarios];
@@ -250,18 +293,32 @@ export const useAppStore = create<AppState>()(
             }
           }
 
+          // Deduplicate by ID to prevent React duplicate key errors
+          const uniqueScenarios: Scenario[] = [];
+          const seenIds = new Set<string>();
+          for (const s of mergedScenarios) {
+            if (!seenIds.has(s.id)) {
+              seenIds.add(s.id);
+              uniqueScenarios.push(s);
+            }
+          }
+
           // Sort by sortOrder
-          mergedScenarios.sort((a, b) => a.sortOrder - b.sortOrder);
+          uniqueScenarios.sort((a, b) => a.sortOrder - b.sortOrder);
+
+          if (uniqueScenarios.length === 0) {
+            uniqueScenarios.push(createDefaultScenario());
+          }
 
           return {
             projectId,
             projectName,
-            scenarios: mergedScenarios,
+            scenarios: uniqueScenarios,
             // If the active scenario isn't in the new list, pick the first one
             activeScenarioId:
-              state.activeScenarioId && mergedScenarios.find((s) => s.id === state.activeScenarioId)
+              state.activeScenarioId && uniqueScenarios.find((s) => s.id === state.activeScenarioId)
                 ? state.activeScenarioId
-                : mergedScenarios[0]?.id ?? null,
+                : uniqueScenarios[0]?.id ?? null,
             _hasHydrated: true,
           };
         });

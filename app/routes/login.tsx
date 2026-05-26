@@ -68,8 +68,7 @@ export async function action({ request }: Route.ActionArgs) {
   }
 }
 
-export default function LoginPage() {
-  const actionData = useActionData<typeof action>();
+export default function LoginPage({ actionData }: Route.ComponentProps) {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 

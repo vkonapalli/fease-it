@@ -3,8 +3,8 @@ import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Toggle } from "~/components/ui/Toggle";
 import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
-import { useAppStore } from "~/stores/appStore";
-import { useShallow } from "zustand/react/shallow";
+import { useFormContext, Controller } from "react-hook-form";
+import type { FeasibilityInputs } from "~/types";
 
 const LVR_BASE_OPTIONS = [
   { label: "Net GRV", value: "net-grv" as const },
@@ -12,31 +12,33 @@ const LVR_BASE_OPTIONS = [
 ];
 
 export function FinancingInputs() {
-  const financing = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.financing));
-  const property = useAppStore(useShallow((s) => s.getActiveScenario()!.inputs.property));
-  const updateActiveInputs = useAppStore((s) => s.updateActiveInputs);
+  const { control, watch } = useFormContext<FeasibilityInputs>();
+  
+  const financing = watch("financing");
+  const property = watch("property");
 
   const loanAmount = useMemo(() => {
     return property.purchasePrice * (financing.lvr / 100);
   }, [property.purchasePrice, financing.lvr]);
 
-  const secondLoanAmount = useMemo(() => {
-    if (!financing.secondLvr || financing.secondLvr <= 0) return 0;
-    return property.purchasePrice * (financing.secondLvr / 100);
-  }, [property.purchasePrice, financing.secondLvr]);
-
   return (
     <Collapsible title="Financing">
       <div className="space-y-4">
         <div className="flex items-center">
-          <NumberField
-            label="Loan-to-Value Ratio (LVR)"
-            value={financing.lvr}
-            onChange={(value) => updateActiveInputs({ financing: { ...financing!, lvr: value } })}
-            suffix="%"
-            min={0}
-            max={100}
-            step={1}
+          <Controller
+            name="financing.lvr"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Loan-to-Value Ratio (LVR)"
+                suffix="%"
+                min={0}
+                max={100}
+                step={1}
+                error={error?.message}
+              />
+            )}
           />
           <ComputedDollarDisplay
             percentage={financing.lvr}
@@ -44,38 +46,62 @@ export function FinancingInputs() {
             label="≈"
           />
         </div>
-        <Toggle
-          label="LVR Base"
-          options={LVR_BASE_OPTIONS}
-          value={financing.lvrBase}
-          onChange={(value) => updateActiveInputs({ financing: { ...financing!, lvrBase: value as "net-grv" | "net-project-costs" } })}
+        <Controller
+          name="financing.lvrBase"
+          control={control}
+          render={({ field, fieldState: { error } }) => (
+            <Toggle
+              {...field}
+              label="LVR Base"
+              options={LVR_BASE_OPTIONS}
+              error={error?.message}
+            />
+          )}
         />
-        <NumberField
-          label="Interest Rate"
-          value={financing.interestRate}
-          onChange={(value) => updateActiveInputs({ financing: { ...financing!, interestRate: value } })}
-          suffix="%"
-          min={0}
-          max={30}
-          step={0.01}
+        <Controller
+          name="financing.interestRate"
+          control={control}
+          render={({ field, fieldState: { error } }) => (
+            <NumberField
+              {...field}
+              label="Interest Rate"
+              suffix="%"
+              min={0}
+              max={30}
+              step={0.01}
+              error={error?.message}
+            />
+          )}
         />
-        <NumberField
-          label="Loan Term"
-          value={financing.loanTermMonths}
-          onChange={(value) => updateActiveInputs({ financing: { ...financing!, loanTermMonths: value } })}
-          suffix="months"
-          min={1}
-          max={360}
+        <Controller
+          name="financing.loanTermMonths"
+          control={control}
+          render={({ field, fieldState: { error } }) => (
+            <NumberField
+              {...field}
+              label="Loan Term"
+              suffix="months"
+              min={1}
+              max={360}
+              error={error?.message}
+            />
+          )}
         />
         <div className="flex items-center">
-          <NumberField
-            label="Establishment Fee"
-            value={financing.establishmentFeePercent}
-            onChange={(value) => updateActiveInputs({ financing: { ...financing!, establishmentFeePercent: value } })}
-            suffix="%"
-            min={0}
-            max={10}
-            step={0.01}
+          <Controller
+            name="financing.establishmentFeePercent"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Establishment Fee"
+                suffix="%"
+                min={0}
+                max={10}
+                step={0.01}
+                error={error?.message}
+              />
+            )}
           />
           <ComputedDollarDisplay
             percentage={financing.establishmentFeePercent}
@@ -84,14 +110,20 @@ export function FinancingInputs() {
           />
         </div>
         <div className="flex items-center">
-          <NumberField
-            label="Broker Fee"
-            value={financing.brokerFeePercent}
-            onChange={(value) => updateActiveInputs({ financing: { ...financing!, brokerFeePercent: value } })}
-            suffix="%"
-            min={0}
-            max={10}
-            step={0.01}
+          <Controller
+            name="financing.brokerFeePercent"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Broker Fee"
+                suffix="%"
+                min={0}
+                max={10}
+                step={0.01}
+                error={error?.message}
+              />
+            )}
           />
           <ComputedDollarDisplay
             percentage={financing.brokerFeePercent}
@@ -99,33 +131,53 @@ export function FinancingInputs() {
             label="≈"
           />
         </div>
-        <NumberField
-          label="Settlement Fee"
-          value={financing.settlementFee}
-          onChange={(value) => updateActiveInputs({ financing: { ...financing!, settlementFee: value } })}
-          prefix="$"
-          min={0}
+        <Controller
+          name="financing.settlementFee"
+          control={control}
+          render={({ field, fieldState: { error } }) => (
+            <NumberField
+              {...field}
+              label="Settlement Fee"
+              prefix="$"
+              min={0}
+              error={error?.message}
+            />
+          )}
         />
-        <NumberField
-          label="Deferred Fee (months interest)"
-          value={financing.deferredFeeMonths}
-          onChange={(value) => updateActiveInputs({ financing: { ...financing!, deferredFeeMonths: value } })}
-          suffix="months"
-          min={0}
-          max={12}
+        <Controller
+          name="financing.deferredFeeMonths"
+          control={control}
+          render={({ field, fieldState: { error } }) => (
+            <NumberField
+              {...field}
+              label="Deferred Fee (months interest)"
+              suffix="months"
+              min={0}
+              max={12}
+              error={error?.message}
+            />
+          )}
         />
 
         {/* Second loan */}
         <div className="border-t border-gray-200 pt-4">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Second / Mezzanine Loan (Optional)</h4>
           <div className="flex items-center">
-            <NumberField
-              label="Second LVR"
-              value={financing.secondLvr ?? 0}
-              onChange={(value) => updateActiveInputs({ financing: { ...financing!, secondLvr: value > 0 ? value : undefined } })}
-              suffix="%"
-              min={0}
-              max={100}
+            <Controller
+              name="financing.secondLvr"
+              control={control}
+              render={({ field, fieldState: { error } }) => (
+                <NumberField
+                  {...field}
+                  label="Second LVR"
+                  value={field.value ?? 0}
+                  onChange={(value) => field.onChange(value > 0 ? value : undefined)}
+                  suffix="%"
+                  min={0}
+                  max={100}
+                  error={error?.message}
+                />
+              )}
             />
             <ComputedDollarDisplay
               percentage={financing.secondLvr ?? 0}
@@ -133,20 +185,35 @@ export function FinancingInputs() {
               label="≈"
             />
           </div>
-          <Toggle
-            label="Second LVR Base"
-            options={LVR_BASE_OPTIONS}
-            value={financing.secondLvrBase ?? financing.lvrBase}
-            onChange={(value) => updateActiveInputs({ financing: { ...financing!, secondLvrBase: value as "net-grv" | "net-project-costs" } })}
+          <Controller
+            name="financing.secondLvrBase"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <Toggle
+                {...field}
+                label="Second LVR Base"
+                options={LVR_BASE_OPTIONS}
+                value={field.value ?? financing.lvrBase}
+                error={error?.message}
+              />
+            )}
           />
-          <NumberField
-            label="Second Interest Rate"
-            value={financing.secondInterestRate ?? 0}
-            onChange={(value) => updateActiveInputs({ financing: { ...financing!, secondInterestRate: value > 0 ? value : undefined } })}
-            suffix="%"
-            min={0}
-            max={50}
-            step={0.01}
+          <Controller
+            name="financing.secondInterestRate"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <NumberField
+                {...field}
+                label="Second Interest Rate"
+                value={field.value ?? 0}
+                onChange={(value) => field.onChange(value > 0 ? value : undefined)}
+                suffix="%"
+                min={0}
+                max={50}
+                step={0.01}
+                error={error?.message}
+              />
+            )}
           />
         </div>
       </div>

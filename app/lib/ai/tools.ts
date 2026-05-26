@@ -290,48 +290,64 @@ export const runCalculation = tool({
   },
 });
 
-export const applyProjectActions = tool({
-  description:
-    "Create scenarios, update inputs, or load strategies in the user's project. Call this EXACTLY ONCE when the user wants to modify the project. Combine multiple actions into one call when possible. After calling, confirm what was done in plain English.",
-  inputSchema: z.object({
-    actions: z
-      .array(
-        z.discriminatedUnion("type", [
-          z.object({
-            type: z.literal("create_scenario"),
-            name: z.string().optional().describe("Descriptive name (e.g. 'Sell All - 800k VIC')"),
-            strategy: scenarioSchema.describe("The strategy to use"),
-            overrides: z
-              .record(z.string(), z.unknown())
-              .describe(
-                "REQUIRED. Dot-path overrides for every user-specified value. " +
-                "Example: { 'property.purchasePrice': 800000, 'property.location': 'VIC' }"
-              ),
-          }),
-          z.object({
-            type: z.literal("update_inputs"),
-            changes: z
-              .record(z.string(), z.unknown())
-              .describe("Dot-path key-value pairs to merge into the current scenario's inputs"),
-          }),
-          z.object({
-            type: z.literal("create_from_strategy"),
-            strategyId: z.string().describe("Strategy ID from listStrategies"),
-            selectedIds: z
-              .array(z.string())
-              .describe("Scenario IDs from the strategy to create (all if user wants all)"),
-          }),
-        ])
-      )
-      .describe("Actions to apply. Batch related actions into one call."),
+export interface ProjectActionExecutor {
+  (actions: any[]): Promise<{ applied: boolean; serverExecuted: boolean; results?: any[]; message: string } | null>;
+}
+
+export const getTools = (executeActions?: ProjectActionExecutor) => ({
+  getInputsForStrategy,
+  calculateScenarioSummary,
+  listStrategies,
+  estimateStampDuty,
+  runCalculation,
+  applyProjectActions: tool({
+    description:
+      "Create scenarios, update inputs, or load strategies in the user's project. Call this EXACTLY ONCE when the user wants to modify the project. Combine multiple actions into one call when possible. After calling, confirm what was done in plain English.",
+    inputSchema: z.object({
+      actions: z
+        .array(
+          z.discriminatedUnion("type", [
+            z.object({
+              type: z.literal("create_scenario"),
+              name: z.string().optional().describe("Descriptive name (e.g. 'Sell All - 800k VIC')"),
+              strategy: scenarioSchema.describe("The strategy to use"),
+              overrides: z
+                .record(z.string(), z.unknown())
+                .describe(
+                  "REQUIRED. Dot-path overrides for every user-specified value. " +
+                  "Example: { 'property.purchasePrice': 800000, 'property.location': 'VIC' }"
+                ),
+            }),
+            z.object({
+              type: z.literal("update_inputs"),
+              changes: z
+                .record(z.string(), z.unknown())
+                .describe("Dot-path key-value pairs to merge into the current scenario's inputs"),
+            }),
+            z.object({
+              type: z.literal("create_from_strategy"),
+              strategyId: z.string().describe("Strategy ID from listStrategies"),
+              selectedIds: z
+                .array(z.string())
+                .describe("Scenario IDs from the strategy to create (all if user wants all)"),
+            }),
+          ])
+        )
+        .describe("Actions to apply. Batch related actions into one call."),
+    }),
+    execute: async ({ actions }) => {
+      if (executeActions) {
+        const result = await executeActions(actions);
+        if (result) return result;
+      }
+
+      return {
+        applied: true,
+        actions,
+        message: "Actions will be applied by the client. Confirm to the user what was done.",
+      };
+    },
   }),
-  execute: async ({ actions }) => {
-    return {
-      applied: true,
-      actions,
-      message: "Actions will be applied by the client. Confirm to the user what was done.",
-    };
-  },
 });
 
 type ActionItem =
@@ -383,7 +399,13 @@ export function resolveActions(actions: ActionItem[]) {
   return resolved;
 }
 
-export const SYSTEM_PROMPT = `You are an AI assistant for Fease-It, an Australian property feasibility analysis tool. You help users create and evaluate property development scenarios.
+export const SYSTEM_PROMPT = `You are an AI assistant for Fease-it, an Australian property feasibility analysis tool. You help users create and evaluate property development scenarios.
+
+## Real-time Context
+You have access to the user's CURRENT UI STATE via the 'currentInputs' field in the chat metadata. 
+- ALWAYS look at 'currentInputs' first to see what the user is currently working on.
+- If 'currentInputs' is available, assume these are the most up-to-date values, even if they differ from what's in the database.
+- Use these values to provide contextually relevant advice or to suggest specific changes.
 
 ## Available Tools
 - **calculateScenarioSummary**: Run a feasibility calculation with user's values. Returns profit, costs, revenue, etc. Use this for "what does this look like?" questions.

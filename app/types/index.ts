@@ -104,6 +104,7 @@ export interface DevelopmentStrategy {
   maxLots: number | null;
   // For average model
   averagePricePerLot: number;
+  averageBuildAreaPerLot: number;
   // For per-sqm model
   pricePerSqm: number;
   // For group-size model
@@ -555,7 +556,7 @@ export interface Project {
   updated_at: string;
 }
 
-export interface Scenario {
+export interface DbScenario {
   id: string;
   project_id: string;
   name: string;
@@ -565,7 +566,4 @@ export interface Scenario {
   created_at: string;
   updated_at: string;
 }
-lts: FeasibilityResults | null;
-  created_at: string;
-  updated_at: string;
-}
+

@@ -1,5 +1,5 @@
 import { getSupabaseServerClient } from "./supabase/server";
-import type { Project, Scenario } from "~/types";
+import type { Project, DbScenario, FeasibilityInputs } from "~/types";
 
 /**
  * Data Access Layer (DAL) for Supabase operations.
@@ -50,7 +50,7 @@ export async function getScenarios(request: Request, userId: string, projectId: 
     .order("sort_order", { ascending: true });
 
   if (error) throw error;
-  return (data ?? []) as Scenario[];
+  return (data ?? []) as DbScenario[];
 }
 
 export async function deleteProject(request: Request, userId: string, projectId: string) {
@@ -87,7 +87,7 @@ export async function updateScenario(
   userId: string, 
   projectId: string, 
   scenarioId: string, 
-  updates: Partial<Pick<Scenario, "name" | "inputs" | "results" | "sort_order">>
+  updates: Partial<Pick<DbScenario, "name" | "inputs" | "results" | "sort_order">>
 ) {
   const { supabase } = getSupabaseServerClient(request);
 
@@ -104,7 +104,7 @@ export async function updateScenario(
     .single();
 
   if (error) throw error;
-  return data as Scenario;
+  return data as DbScenario;
 }
 
 export async function createScenario(
@@ -112,7 +112,7 @@ export async function createScenario(
   userId: string,
   projectId: string,
   name: string,
-  inputs: any,
+  inputs: FeasibilityInputs,
   sortOrder: number,
   id?: string
 ) {
@@ -135,5 +135,5 @@ export async function createScenario(
     .single();
 
   if (error) throw error;
-  return data as Scenario;
+  return data as DbScenario;
 }

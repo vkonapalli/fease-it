@@ -42,8 +42,23 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  const formData = await request.formData();
-  const intent = formData.get("intent") as string;
+  const contentType = request.headers.get("Content-Type");
+  let data: any;
+  if (contentType?.includes("application/json")) {
+    data = await request.json();
+  } else {
+    const formData = await request.formData();
+    data = Object.fromEntries(formData);
+    if (typeof data.scenarios === "string") {
+      try {
+        data.scenarios = JSON.parse(data.scenarios);
+      } catch (e) {
+        data.scenarios = [];
+      }
+    }
+  }
+
+  const { intent, id, name, scenarios } = data;
 
   if (!isSupabaseConfigured()) {
     return { ok: true, localOnly: true };
@@ -55,7 +70,6 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   if (intent === "delete") {
-    const id = formData.get("id") as string;
     const { error } = await supabase.from("projects").delete().eq("id", id).eq("user_id", user.id);
     if (error) {
       return { error: error.message };
@@ -63,11 +77,43 @@ export async function action({ request }: Route.ActionArgs) {
     return { ok: true };
   }
 
+  if (intent === "create") {
+    // 1. Create project
+    const { data: project, error: pError } = await supabase
+      .from("projects")
+      .insert({ name, user_id: user.id })
+      .select()
+      .single();
+
+    if (pError || !project) {
+      return { error: pError?.message || "Failed to create project" };
+    }
+
+    // 2. Create scenarios
+    const scenarioList = Array.isArray(scenarios) ? scenarios : [];
+    const { error: sError } = await supabase
+      .from("scenarios")
+      .insert(
+        scenarioList.map((s: any, i: number) => ({
+          project_id: project.id,
+          name: s.name,
+          inputs: s.inputs,
+          sort_order: i,
+        }))
+      );
+
+    if (sError) {
+       return { error: sError.message };
+    }
+
+    return redirect(`/projects/${project.id}`);
+  }
+
   return { error: "Unknown intent." };
 }
 
-export default function ProjectsPage() {
-  const { projects: initialProjects, localOnly } = useLoaderData<typeof loader>();
+export default function ProjectsPage({ loaderData }: Route.ComponentProps) {
+  const { projects: initialProjects, localOnly } = loaderData;
   const navigate = useNavigate();
   const setProject = useAppStore((s) => s.setProject);
   const fetcher = useFetcher<typeof action>();

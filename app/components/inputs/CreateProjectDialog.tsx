@@ -1,14 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSubmit } from "react-router";
 import { Button } from "~/components/ui/Button";
 import { BUILT_IN_STRATEGIES, getAllStrategies, createScenariosFromStrategy, createBaseInputs } from "~/lib/templates";
 import { useAppStore } from "~/stores/appStore";
-import { createProject, createScenario } from "~/services/projectService";
-import { isSupabaseConfigured } from "~/services/authService";
+import { isSupabaseConfigured } from "~/lib/supabase/client";
 import { FolderOpen, X, Check, ChevronDown, Settings, Trash2 } from "lucide-react";
-import type { Strategy, StrategyScenario, FeasibilityInputs } from "~/types";
+import type { Strategy, StrategyScenario, FeasibilityInputs, Project } from "~/types";
 import type { Scenario } from "~/stores/appStore";
-import type { Project } from "~/services/projectService";
 
 interface CreateProjectDialogProps {
   isOpen: boolean;
@@ -18,6 +16,7 @@ interface CreateProjectDialogProps {
 
 export function CreateProjectDialog({ isOpen, onClose, onCreated }: CreateProjectDialogProps) {
   const navigate = useNavigate();
+  const submit = useSubmit();
   const customStrategies = useAppStore((s) => s.customStrategies);
   const preferredStrategyId = useAppStore((s) => s.preferredStrategyId);
   const saveCustomStrategy = useAppStore((s) => s.saveCustomStrategy);
@@ -96,23 +95,22 @@ export function CreateProjectDialog({ isOpen, onClose, onCreated }: CreateProjec
         scenariosToCreate = createScenariosFromStrategy(selectedStrategy, selectedScenarioIds);
       }
 
-      let projectId: string;
-      let projectNameFinal = projectName.trim();
-
       if (isSupabaseConfigured()) {
-        const project = await createProject(projectNameFinal);
-        projectId = project.id;
-        projectNameFinal = project.name;
-        onCreated?.(project);
-
-        for (let i = 0; i < scenariosToCreate.length; i++) {
-          const s = scenariosToCreate[i];
-          await createScenario(projectId, s.name, s.inputs, i);
-        }
-      } else {
-        // Local-only mode
-        projectId = crypto.randomUUID();
+        submit(
+          {
+            intent: "create",
+            name: projectName.trim(),
+            scenarios: scenariosToCreate,
+          } as any,
+          { method: "post", encType: "application/json" }
+        );
+        onClose();
+        return;
       }
+
+      // Local-only mode
+      const projectId = crypto.randomUUID();
+      const projectNameFinal = projectName.trim();
 
       // Set active project and scenarios
       setProject(projectId, projectNameFinal);

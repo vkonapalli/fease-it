@@ -4,7 +4,7 @@ import { useAppStore } from "~/stores/appStore";
 import { exportAllScenariosToCSV } from "~/lib/export";
 import { calculateFeasibility } from "~/lib/calculations";
 import { Link, useNavigate } from "react-router";
-import { signOut } from "~/services/authService";
+import { getSupabaseBrowserClient } from "~/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
 interface HeaderProps {
@@ -23,7 +23,8 @@ export function Header({ user }: HeaderProps) {
   };
 
   async function handleSignOut() {
-    await signOut();
+    const supabase = getSupabaseBrowserClient();
+    await supabase.auth.signOut();
     navigate("/login");
   }
 
