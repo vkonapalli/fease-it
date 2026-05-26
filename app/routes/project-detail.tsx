@@ -1,7 +1,8 @@
 import { debounce, isEqual } from "~/lib/utils";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
 import { useNavigate, useParams, useFetcher, useLoaderData, redirect, useSubmit, useNavigation } from "react-router";
 import type { Route } from "./+types/project-detail";
+import { parseRequestData, validateOrigin } from "~/lib/utils.server";
 import { PropertyInputs } from "~/components/inputs/PropertyInputs";
 import { TimelineInputs } from "~/components/inputs/TimelineInputs";
 import { DevelopmentStrategyInputs } from "~/components/inputs/DevelopmentStrategyInputs";
@@ -110,23 +111,19 @@ export async function action({ request, params }: Route.ActionArgs) {
   const projectId = params.projectId;
   if (!projectId) return { error: "Missing projectId" };
 
-  const contentType = request.headers.get("Content-Type");
-  let data: any;
-  if (contentType?.includes("application/json")) {
-    data = await request.json();
-  } else {
-    const formData = await request.formData();
-    data = Object.fromEntries(formData);
+  if (request.method !== "GET" && !validateOrigin(request)) {
+    return { error: "Invalid origin" };
   }
 
-  const submission = ScenarioActionSchema.safeParse(data);
+  const rawData = await parseRequestData(request);
+  const submission = ScenarioActionSchema.safeParse(rawData);
 
   if (!submission.success) {
     return { error: "Invalid submission", details: submission.error.format() };
   }
 
   const { intent, id, name } = submission.data;
-  let inputs: any = submission.data.inputs;
+  let inputs: unknown = submission.data.inputs;
 
   // Handle both stringified (from FormData) and object (from JSON) inputs
   if (typeof inputs === "string") {
@@ -156,7 +153,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
 
     if (intent === "create-scenario" && name && inputs) {
-      const localId = (data as any).localId;
+      const localId = (rawData as Record<string, unknown>).localId as string | undefined;
       const scenario = await db.createScenario(
         request,
         user.id,
@@ -180,7 +177,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
 
     if (intent === "update-scenario" && id && inputs) {
-      await db.updateScenario(request, user.id, projectId, id, { inputs });
+      await db.updateScenario(request, user.id, projectId, id, { inputs: inputs as FeasibilityInputs });
       return { ok: true, id, intent };
     }
 
@@ -190,7 +187,7 @@ export async function action({ request, params }: Route.ActionArgs) {
         user.id,
         projectId,
         name,
-        inputs,
+        inputs as FeasibilityInputs,
         0 // sortOrder
       );
       return redirect(`/projects/${projectId}/scenarios/${scenario.id}`);
@@ -384,12 +381,14 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
     }
   }, [fetcher.state, fetcher.data, markScenarioSynced, activeScenarioId]);
 
-  const results = useMemo(() => {
-    if (!formValues || Object.keys(formValues).length === 0) return null;
-    return calculateFeasibility(formValues);
-  }, [formValues]);
+  const deferredFormValues = useDeferredValue(formValues);
 
-  const isSDA = formValues?.scenario === "sda-hold";
+  const results = useMemo(() => {
+    if (!deferredFormValues || Object.keys(deferredFormValues).length === 0) return null;
+    return calculateFeasibility(deferredFormValues);
+  }, [deferredFormValues]);
+
+  const isSDA = deferredFormValues?.scenario === "sda-hold";
   const activeResult = results?.scenarios.find((s) => s.scenario === results.activeScenario);
 
   // Deriving saving state from React Router
@@ -550,7 +549,8 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
       <div className="bg-white border-b border-gray-200">
         <div className="mx-auto max-w-7xl px-4 py-2 flex items-center gap-2 overflow-x-auto">
           {displayScenarios.map((s) => (
-            <div
+            <button
+              type="button"
               key={s.id}
               className={`group flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${
                 s.id === activeScenarioId
@@ -558,6 +558,12 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
               onClick={() => handleScenarioSelect(s.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleScenarioSelect(s.id);
+                }
+              }}
             >
               <span
                 contentEditable
@@ -569,21 +575,31 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
                     e.currentTarget.blur();
                   }
                 }}
+                onClick={(e) => e.stopPropagation()}
               >
                 {s.name}
               </span>
-              <button
+              <div
                 className="ml-1 text-xs opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
                 title="Copy scenario"
                 onClick={(e) => {
                   e.stopPropagation();
                   setCopyDialogId(s.id);
                 }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCopyDialogId(s.id);
+                  }
+                }}
               >
                 <Copy className="h-3 w-3" />
-              </button>
+              </div>
               {displayScenarios.length > 1 && (
-                <button
+                <div
                   className="ml-1 text-xs opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -591,11 +607,22 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
                       handleDeleteScenario(s.id);
                     }
                   }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (confirm(`Delete "${s.name}"?`)) {
+                        handleDeleteScenario(s.id);
+                      }
+                    }
+                  }}
                 >
                   ×
-                </button>
+                </div>
               )}
-            </div>
+            </button>
           ))}
           <Button
             size="sm"

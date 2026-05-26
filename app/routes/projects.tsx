@@ -5,6 +5,7 @@ import { Plus, FolderOpen, Trash2, Loader2 } from "lucide-react";
 import { Button } from "~/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
 import { CreateProjectDialog } from "~/components/inputs/CreateProjectDialog";
+import { parseRequestData, validateOrigin } from "~/lib/utils.server";
 import { getSupabaseServerClient } from "~/lib/supabase/server";
 import { requireAuth } from "~/lib/auth.server";
 import { isSupabaseConfigured } from "~/lib/supabase/client";
@@ -42,23 +43,25 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  const contentType = request.headers.get("Content-Type");
-  let data: any;
-  if (contentType?.includes("application/json")) {
-    data = await request.json();
-  } else {
-    const formData = await request.formData();
-    data = Object.fromEntries(formData);
-    if (typeof data.scenarios === "string") {
-      try {
-        data.scenarios = JSON.parse(data.scenarios);
-      } catch (e) {
-        data.scenarios = [];
-      }
+  if (request.method !== "GET" && !validateOrigin(request)) {
+    return { error: "Invalid origin" };
+  }
+
+  const rawData = await parseRequestData(request);
+  const data = rawData as Record<string, unknown>;
+  
+  if (typeof data.scenarios === "string") {
+    try {
+      data.scenarios = JSON.parse(data.scenarios);
+    } catch (e) {
+      data.scenarios = [];
     }
   }
 
-  const { intent, id, name, scenarios } = data;
+  const intent = data.intent as string;
+  const id = data.id as string | undefined;
+  const name = data.name as string | undefined;
+  const scenarios = data.scenarios;
 
   if (!isSupabaseConfigured()) {
     return { ok: true, localOnly: true };
