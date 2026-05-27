@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
 import { useAppStore } from "~/stores/appStore";
+import { useShallow } from "zustand/react/shallow";
 import { calculateFeasibility } from "~/lib/calculations";
 import { formatCurrency } from "~/lib/calculations/stampDuty";
 import { ArrowRightLeft, X } from "lucide-react";
 
 export function ScenarioComparison() {
-  const scenarios = useAppStore((s) => s.scenarios);
+  const scenarios = useAppStore(useShallow((s) => s.scenarios));
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const toggleSelection = (id: string) => {

@@ -17,19 +17,7 @@ import { SDAInputs } from "~/components/inputs/SDAInputs";
 import { CapitalStackInputs } from "~/components/inputs/CapitalStackInputs";
 import { CapitalSpreadInputs } from "~/components/inputs/CapitalSpreadInputs";
 import { CopyScenarioDialog } from "~/components/inputs/CopyScenarioDialog";
-import { FeasibilityTable } from "~/components/results/FeasibilityTable";
-import { SummaryCards } from "~/components/results/SummaryCards";
-import { ScenarioTabs } from "~/components/results/ScenarioTabs";
-import { ComparisonTable } from "~/components/results/ComparisonTable";
-import { SensitivityAnalysis } from "~/components/results/SensitivityAnalysis";
-import { CostBreakdownChart } from "~/components/results/CostBreakdownChart";
-import { CashflowTable } from "~/components/results/CashflowTable";
-import { JVSummary } from "~/components/results/JVSummary";
-import { BudgetVsActualTable } from "~/components/results/BudgetVsActualTable";
-import { YearlyProjectionTable } from "~/components/results/YearlyProjectionTable";
-import { SDAResults } from "~/components/results/SDAResults";
-import { ScenarioComparison } from "~/components/results/ScenarioComparison";
-import { DeficitCard } from "~/components/results/DeficitCard";
+import { ResultsPanel } from "~/components/results/ResultsPanel";
 import { useAppStore } from "~/stores/appStore";
 import { calculateFeasibility } from "~/lib/calculations";
 import { isSupabaseConfigured } from "~/lib/supabase/client";
@@ -41,7 +29,8 @@ import type { Scenario as AppScenario } from "~/stores/appStore";
 import { Plus, Loader2, Copy } from "lucide-react";
 import { Button } from "~/components/ui/Button";
 import { AIChat } from "~/components/AIChat";
-import { useForm, FormProvider } from "react-hook-form";
+import { useForm, FormProvider, useWatch } from "react-hook-form";
+import { useShallow } from "zustand/react/shallow";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FeasibilityInputsSchema } from "~/lib/schemas";
 import type { FeasibilityInputs } from "~/types";
@@ -209,7 +198,7 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
   const setProject = useAppStore((s) => s.setProject);
   const projectName = useAppStore((s) => s.projectName);
   const storeProjectId = useAppStore((s) => s.projectId);
-  const scenarios = useAppStore((s) => s.scenarios);
+  const scenarios = useAppStore(useShallow((s) => s.scenarios));
   const activeScenarioId = useAppStore((s) => s.activeScenarioId);
   const setScenarios = useAppStore((s) => s.setScenarios);
   const setActiveScenario = useAppStore((s) => s.setActiveScenario);
@@ -241,8 +230,7 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
     mode: "onChange",
   });
 
-  const { watch, reset } = methods;
-  const formValues = watch();
+  const { reset } = methods;
 
   // Reset form when switching scenarios OR when external updates happen (e.g. AI Chat)
   const lastResetId = useRef<string | null>(null);
@@ -386,15 +374,8 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
     }
   }, [fetcher.state, fetcher.data, markScenarioSynced, activeScenarioId]);
 
-  const deferredFormValues = useDeferredValue(formValues);
-
-  const results = useMemo(() => {
-    if (!deferredFormValues || Object.keys(deferredFormValues).length === 0) return null;
-    return calculateFeasibility(deferredFormValues);
-  }, [deferredFormValues]);
-
-  const isSDA = deferredFormValues?.scenario === "sda-hold";
-  const activeResult = results?.scenarios.find((s) => s.scenario === results.activeScenario);
+  const scenarioType = useWatch({ control: methods.control, name: "scenario" });
+  const isSDA = scenarioType === "sda-hold";
 
   // Deriving saving state from React Router
   const { state: navigationState, formData: navigationFormData } = useNavigation();
@@ -702,38 +683,17 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
           </div>
 
           <div className="space-y-4">
-            {isSDA ? (
-              <SDAResults sdaConfig={formValues?.sda} />
-            ) : activeResult && results ? (
-              <>
-                <SummaryCards results={activeResult} />
-                <FeasibilityTable result={activeResult} />
-                <DeficitCard
-                  deficit={activeResult.deficit}
-                  totalProjectCost={activeResult.totalProjectCost}
-                  seniorDebtAmount={activeResult.seniorDebtAmount}
-                  mezzanineDebtAmount={activeResult.mezzanineDebtAmount}
-                  privateLendingAmount={activeResult.privateLendingAmount}
-                  committedCapital={activeResult.committedCapital}
-                />
-                
-                {scenarios.length > 1 && <ScenarioComparison />}
-                
-                <ScenarioTabs scenarios={results.scenarios} activeScenario={results.activeScenario} />
-                <CostBreakdownChart costs={activeResult.costBreakdown} />
-                <ComparisonTable comparison={activeResult.comparison} />
-                <JVSummary jv={activeResult.jv} />
-                <CashflowTable cashflow={activeResult.cashflow} />
-                <YearlyProjectionTable projections={activeResult.yearlyProjections} />
-                <SensitivityAnalysis sensitivity={activeResult.sensitivity} />
-                <BudgetVsActualTable budgetVsActual={results.budgetVsActual} />
-              </>
-            ) : null}
+            <ResultsPanel />
           </div>
         </div>
       </main>
 
-      <AIChat currentInputs={formValues} />
+      <AIChatWrapper />
     </FormProvider>
   );
+}
+
+function AIChatWrapper() {
+  const formValues = useWatch();
+  return <AIChat currentInputs={formValues as FeasibilityInputs} />;
 }
