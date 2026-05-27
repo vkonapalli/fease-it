@@ -58,14 +58,14 @@ export function CopyScenarioDialog({ sourceName, onConfirm, onCancel }: CopyScen
       <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-primary">Copy Scenario</h3>
-          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onCancel} className="text-gray-500 hover:text-gray-600">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">New scenario name</label>
-          <input
+          <input aria-label="Input field"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -110,7 +110,7 @@ export function CopyScenarioDialog({ sourceName, onConfirm, onCancel }: CopyScen
 function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer">
-      <input
+      <input aria-label="Input field"
         type="checkbox"
         checked={checked}
         onChange={onChange}

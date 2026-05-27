@@ -76,8 +76,7 @@ export function JVInputs() {
                 name={`jv.rounds.${rIndex}.name`}
                 control={control}
                 render={({ field, fieldState: { error } }) => (
-                  <input
-                    {...field}
+                  <input aria-label="Input field"                     {...field}
                     type="text"
                     className={cn(
                       "font-medium text-sm bg-transparent border-none p-0 focus:ring-0 w-full",
@@ -93,8 +92,7 @@ export function JVInputs() {
                       name={`jv.rounds.${rIndex}.investors.${iIndex}.name`}
                       control={control}
                       render={({ field, fieldState: { error } }) => (
-                        <input
-                          {...field}
+                        <input aria-label="Input field"                           {...field}
                           type="text"
                           className={cn(
                             "flex-1 rounded-lg border px-3 py-1.5 text-sm",
@@ -131,7 +129,7 @@ export function JVInputs() {
                         setValue(`jv.rounds.${rIndex}.investors`, newInvestors);
                         setValue(`jv.rounds.${rIndex}.totalRaised`, newInvestors.reduce((s, i) => s + i.amount, 0));
                       }}
-                      className="text-error hover:text-error/80 p-1"
+                      aria-label="Delete item" className="text-error hover:text-error/80 p-1"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -170,8 +168,7 @@ export function JVInputs() {
                   name={`jv.moneyPartners.${index}.name`}
                   control={control}
                   render={({ field, fieldState: { error } }) => (
-                    <input
-                      {...field}
+                    <input aria-label="Input field"                       {...field}
                       type="text"
                       className={cn(
                         "flex-1 rounded-lg border px-3 py-1.5 text-sm",
@@ -223,7 +220,7 @@ export function JVInputs() {
                 <button
                   type="button"
                   onClick={() => removePartner(index)}
-                  className="text-error hover:text-error/80 p-1"
+                  aria-label="Delete item" className="text-error hover:text-error/80 p-1"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>

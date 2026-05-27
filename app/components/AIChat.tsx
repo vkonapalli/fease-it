@@ -260,17 +260,17 @@ function AIChatCore({
             <h2 className="text-lg font-semibold text-gray-900">AI Assistant</h2>
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-400">⌘K</span>
+            <span className="text-xs text-gray-500">⌘K</span>
             <button
               onClick={handleNewChat}
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-600"
               title="New chat"
             >
               <MessageSquarePlus className="h-5 w-5" />
             </button>
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-600"
             >
               <X className="h-5 w-5" />
             </button>
@@ -284,7 +284,7 @@ function AIChatCore({
               <p className="text-sm font-medium text-gray-600">
                 How can I help with your feasibility?
               </p>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-gray-500">
                 Try: "Create a sell-all feasibility for 123 Main St, VIC, $800k purchase price"
               </p>
               <div className="mt-4 flex flex-wrap gap-1.5 justify-center">
@@ -463,7 +463,7 @@ function AIChatCore({
               }}
               placeholder="Ask about feasibility..."
               rows={1}
-              className="flex-1 resize-none rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm placeholder:text-gray-400 focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="flex-1 resize-none rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm placeholder:text-gray-500 focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20"
               disabled={isLoading}
             />
             <Button
@@ -479,7 +479,7 @@ function AIChatCore({
               )}
             </Button>
           </div>
-          <p className="mt-1.5 text-center text-[11px] text-gray-400">
+          <p className="mt-1.5 text-center text-[11px] text-gray-500">
             Press Enter to send, Shift+Enter for new line
           </p>
         </form>
@@ -556,7 +556,7 @@ export function AIChat({ currentInputs }: { currentInputs?: FeasibilityInputs | 
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
         <div className="fixed right-0 top-0 z-50 h-full w-[420px] border-l border-gray-200 bg-white shadow-2xl flex items-center justify-center">
-          <div className="flex flex-col items-center gap-2 text-gray-400">
+          <div className="flex flex-col items-center gap-2 text-gray-500">
             <History className="h-8 w-8" />
             <span className="text-sm">Loading conversation...</span>
           </div>

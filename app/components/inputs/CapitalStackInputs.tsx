@@ -119,8 +119,8 @@ export function CapitalStackInputs() {
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-gray-200 p-3">
-            <h4 className="text-sm font-semibold text-gray-400 mb-1">2. Mezzanine Debt</h4>
-            <p className="text-xs text-gray-400">Configure in Financing section</p>
+            <h4 className="text-sm font-semibold text-gray-500 mb-1">2. Mezzanine Debt</h4>
+            <p className="text-xs text-gray-500">Configure in Financing section</p>
           </div>
         )}
 

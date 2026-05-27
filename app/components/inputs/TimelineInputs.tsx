@@ -51,7 +51,7 @@ export function TimelineInputs() {
               control={control}
               render={({ field, fieldState: { error } }) => (
                 <>
-                  <input
+                  <input aria-label="Input field"
                     {...field}
                     type="date"
                     className={cn(
@@ -71,7 +71,7 @@ export function TimelineInputs() {
               control={control}
               render={({ field, fieldState: { error } }) => (
                 <>
-                  <input
+                  <input aria-label="Input field"
                     {...field}
                     type="date"
                     className={cn(
@@ -104,7 +104,7 @@ export function TimelineInputs() {
             )}
           />
           <div className="group relative pt-5">
-            <Info className="h-4 w-4 text-gray-400 cursor-help" />
+            <Info className="h-4 w-4 text-gray-500 cursor-help" />
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-64 p-2 bg-gray-800 text-white text-xs rounded-lg shadow-lg z-10">
               Project duration is measured from the contract date. For example, a 12-month project starting 1 Jan 2024 ends 31 Dec 2024.
               <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800" />

@@ -89,8 +89,7 @@ export function DevelopmentInputs() {
                     name={`development.lots.${index}.name`}
                     control={control}
                     render={({ field }) => (
-                      <input
-                        {...field}
+                      <input aria-label="Input field"                         {...field}
                         type="text"
                         className="font-medium text-sm bg-transparent border-none p-0 focus:ring-0"
                       />
@@ -99,7 +98,7 @@ export function DevelopmentInputs() {
                   <button
                     type="button"
                     onClick={() => handleRemoveLot(index)}
-                    className="text-error hover:text-error/80 p-1"
+                    aria-label="Delete item" className="text-error hover:text-error/80 p-1"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -205,8 +204,7 @@ export function DevelopmentInputs() {
                     name={`development.globalCosts.${index}.name`}
                     control={control}
                     render={({ field, fieldState: { error } }) => (
-                      <input
-                        {...field}
+                      <input aria-label="Input field"                         {...field}
                         type="text"
                         className={cn(
                           "flex-1 min-w-[120px] rounded-lg border px-3 py-1.5 text-sm",
@@ -272,7 +270,7 @@ export function DevelopmentInputs() {
                   <button
                     type="button"
                     onClick={() => removeGlobalCost(index)}
-                    className="text-error hover:text-error/80 p-1"
+                    aria-label="Delete item" className="text-error hover:text-error/80 p-1"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

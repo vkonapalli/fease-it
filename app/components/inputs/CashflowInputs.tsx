@@ -44,8 +44,7 @@ export function CashflowInputs() {
             name="cashflow.startDate"
             control={control}
             render={({ field, fieldState: { error } }) => (
-              <input
-                {...field}
+              <input aria-label="Date"                 {...field}
                 type="date"
                 className={cn(
                   "w-full rounded-lg border px-3 py-2 text-sm",
@@ -64,8 +63,7 @@ export function CashflowInputs() {
                   name={`cashflow.phases.${pIndex}.name`}
                   control={control}
                   render={({ field, fieldState: { error } }) => (
-                    <input
-                      {...field}
+                    <input aria-label="Input field"                       {...field}
                       type="text"
                       className={cn(
                         "font-medium text-sm bg-transparent border-none p-0 focus:ring-0",
@@ -77,7 +75,7 @@ export function CashflowInputs() {
                 <button
                   type="button"
                   onClick={() => removePhase(pIndex)}
-                  className="text-error hover:text-error/80 p-1"
+                  aria-label="Delete item" className="text-error hover:text-error/80 p-1"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -107,8 +105,7 @@ export function CashflowInputs() {
                       name={`cashflow.phases.${pIndex}.income.${iIndex}.name`}
                       control={control}
                       render={({ field, fieldState: { error } }) => (
-                        <input
-                          {...field}
+                        <input aria-label="Input field"                           {...field}
                           type="text"
                           className={cn(
                             "flex-1 rounded border px-2 py-1 text-xs",
@@ -134,8 +131,7 @@ export function CashflowInputs() {
                       name={`cashflow.phases.${pIndex}.income.${iIndex}.frequency`}
                       control={control}
                       render={({ field, fieldState: { error } }) => (
-                        <select
-                          {...field}
+                        <select aria-label="Select option"                           {...field}
                           className={cn(
                             "rounded border px-2 py-1 text-xs bg-white",
                             error ? "border-error focus:ring-error" : "border-gray-200"
@@ -181,8 +177,7 @@ export function CashflowInputs() {
                       name={`cashflow.phases.${pIndex}.costs.${cIndex}.name`}
                       control={control}
                       render={({ field, fieldState: { error } }) => (
-                        <input
-                          {...field}
+                        <input aria-label="Input field"                           {...field}
                           type="text"
                           className={cn(
                             "flex-1 rounded border px-2 py-1 text-xs",
@@ -208,8 +203,7 @@ export function CashflowInputs() {
                       name={`cashflow.phases.${pIndex}.costs.${cIndex}.frequency`}
                       control={control}
                       render={({ field, fieldState: { error } }) => (
-                        <select
-                          {...field}
+                        <select aria-label="Select option"                           {...field}
                           className={cn(
                             "rounded border px-2 py-1 text-xs bg-white",
                             error ? "border-error focus:ring-error" : "border-gray-200"

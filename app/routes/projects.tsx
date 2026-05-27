@@ -11,6 +11,12 @@ import { requireAuth } from "~/lib/auth.server";
 import { isSupabaseConfigured } from "~/lib/supabase/client";
 import { useAppStore } from "~/stores/appStore";
 
+export const meta: Route.MetaFunction = () => {
+  return [
+    { title: "Projects | Fease It" }
+  ];
+};
+
 export interface Project {
   id: string;
   user_id: string;
@@ -145,7 +151,7 @@ export default function ProjectsPage({ loaderData }: Route.ComponentProps) {
         </div>
         <div className="text-center py-16">
           <FolderOpen className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-700">No projects yet</h3>
+          <h1 className="text-lg font-medium text-gray-700">No projects yet</h1>
           <p className="text-sm text-gray-500 mt-1">Create your first feasibility project.</p>
         </div>
         <CreateProjectDialog
@@ -172,7 +178,7 @@ export default function ProjectsPage({ loaderData }: Route.ComponentProps) {
       {projects.length === 0 ? (
         <div className="text-center py-16">
           <FolderOpen className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-700">No projects yet</h3>
+          <h1 className="text-lg font-medium text-gray-700">No projects yet</h1>
           <p className="text-sm text-gray-500 mt-1">Create your first feasibility project.</p>
         </div>
       ) : (
@@ -192,13 +198,13 @@ export default function ProjectsPage({ loaderData }: Route.ComponentProps) {
                     Open
                   </Button>
                   <fetcher.Form method="post" className="inline">
-                    <input type="hidden" name="intent" value="delete" />
-                    <input type="hidden" name="id" value={project.id} />
+                    <input aria-label="Input field" type="hidden" name="intent" value="delete" />
+                    <input aria-label="Input field" type="hidden" name="id" value={project.id} />
                     <Button
                       size="sm"
                       variant="ghost"
                       type="submit"
-                      className="text-error hover:bg-red-50"
+                      aria-label="Delete project" className="text-error hover:bg-red-50"
                       disabled={isDeleting && deletingId === project.id}
                     >
                       {isDeleting && deletingId === project.id ? (

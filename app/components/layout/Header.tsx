@@ -55,7 +55,7 @@ export function Header({ user }: HeaderProps) {
             <Download className="h-4 w-4 mr-1" /> Export
           </Button>
           {user && (
-            <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-error hover:bg-red-50">
+            <Button variant="ghost" size="sm" onClick={handleSignOut} aria-label="Delete project" className="text-error hover:bg-red-50">
               <LogOut className="h-4 w-4 mr-1" /> Sign out
             </Button>
           )}

@@ -128,8 +128,7 @@ export function PropertyInputs() {
               control={control}
               render={({ field, fieldState: { error } }) => (
                 <>
-                  <select
-                    {...field}
+                  <select aria-label="Select option"                     {...field}
                     className={cn(
                       "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent",
                       error && "border-error focus:border-error focus:ring-error"
@@ -179,7 +178,7 @@ export function PropertyInputs() {
               )}
             />
             <div className="group relative">
-              <Info className="h-4 w-4 text-gray-400 cursor-help" />
+              <Info className="h-4 w-4 text-gray-500 cursor-help" />
               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-56 p-2 bg-gray-800 text-white text-xs rounded-lg shadow-lg z-10">
                 Site value used for land tax calculations. Often less than the full purchase price (which includes improvements).
                 <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800" />
@@ -277,8 +276,7 @@ export function PropertyInputs() {
                     control={control}
                     render={({ field, fieldState: { error } }) => (
                       <div className="flex-1 min-w-[120px]">
-                        <input
-                          {...field}
+                        <input aria-label="Input field"                           {...field}
                           type="text"
                           className={cn(
                             "w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm",
@@ -335,7 +333,7 @@ export function PropertyInputs() {
                   <button
                     type="button"
                     onClick={() => remove(index)}
-                    className="text-error hover:text-error/80 p-1"
+                    aria-label="Delete item" className="text-error hover:text-error/80 p-1"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

@@ -56,7 +56,7 @@ export function JVSummary({ jv }: JVSummaryProps) {
                   <div className="flex gap-4 font-mono">
                     <span className="text-success">{formatCurrency(r.investorReturn)}</span>
                     <span className="text-gray-500">({formatPercent(r.investorReturnPercent)})</span>
-                    <span className="text-gray-400 text-xs">IRR {formatPercent(r.irr * 100)}</span>
+                    <span className="text-gray-500 text-xs">IRR {formatPercent(r.irr * 100)}</span>
                   </div>
                 </div>
               ))}

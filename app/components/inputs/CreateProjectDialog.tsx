@@ -153,7 +153,7 @@ export function CreateProjectDialog({ isOpen, onClose, onCreated }: CreateProjec
           <h2 className="text-lg font-semibold text-primary">
             {step === "details" ? "Create New Project" : "Choose Strategy"}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-600">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -166,7 +166,7 @@ export function CreateProjectDialog({ isOpen, onClose, onCreated }: CreateProjec
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Project Name
                 </label>
-                <input
+                <input aria-label="Input field"
                   type="text"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
@@ -227,7 +227,7 @@ export function CreateProjectDialog({ isOpen, onClose, onCreated }: CreateProjec
                           key={strategy.id}
                           className="flex items-center gap-2 cursor-pointer"
                         >
-                          <input
+                          <input aria-label="Input field"
                             type="radio"
                             name="preferred-strategy"
                             checked={preferredStrategyId === strategy.id}
@@ -243,7 +243,7 @@ export function CreateProjectDialog({ isOpen, onClose, onCreated }: CreateProjec
                                   deleteCustomStrategy(strategy.id);
                                 }
                               }}
-                              className="text-gray-400 hover:text-error"
+                              className="text-gray-500 hover:text-error"
                             >
                               <Trash2 className="h-3 w-3" />
                             </button>
@@ -262,7 +262,7 @@ export function CreateProjectDialog({ isOpen, onClose, onCreated }: CreateProjec
                   </div>
                 ) : (
                   <div className="relative">
-                    <select
+                    <select aria-label="Select option"
                       value={selectedStrategyId}
                       onChange={(e) => setSelectedStrategyId(e.target.value)}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm appearance-none focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent bg-white"
@@ -273,7 +273,7 @@ export function CreateProjectDialog({ isOpen, onClose, onCreated }: CreateProjec
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
+                    <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-gray-500 pointer-events-none" />
                   </div>
                 )}
 
@@ -390,7 +390,7 @@ function ScenarioCheckbox({
         >
           {checked && <Check className="h-3.5 w-3.5 text-white" />}
         </div>
-        <input
+        <input aria-label="Input field"
           type="checkbox"
           className="sr-only"
           checked={checked}

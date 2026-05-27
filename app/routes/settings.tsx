@@ -2,6 +2,15 @@ import { useState, useMemo } from "react";
 import { useAppStore } from "~/stores/appStore";
 import { BUILT_IN_STRATEGIES, getAllStrategies, createStrategyScenario } from "~/lib/templates";
 import { Button } from "~/components/ui/Button";
+import { cn } from "~/lib/utils";
+import type { Route } from "./+types/settings";
+
+export const meta: Route.MetaFunction = () => {
+  return [
+    { title: "Settings | Fease It" }
+  ];
+};
+
 import {
   Star,
   Copy,
@@ -187,7 +196,7 @@ export default function SettingsPage() {
                     >
                       {strategy.isBuiltIn ? "Built-in" : "Custom"}
                     </span>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-gray-500">
                       {strategy.scenarios.length} scenario{strategy.scenarios.length !== 1 ? "s" : ""}
                     </span>
                   </div>
@@ -205,13 +214,13 @@ export default function SettingsPage() {
                   <div className="flex-1 min-w-0">
                     {isEditing ? (
                       <div className="space-y-2">
-                        <input
+                        <input aria-label="Input field"
                           type="text"
                           value={editingStrategy!.name}
                           onChange={(e) => updateEditingField("name", e.target.value)}
                           className="w-full text-lg font-semibold text-gray-800 border border-gray-300 rounded px-2 py-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                         />
-                        <input
+                        <input aria-label="Input field"
                           type="text"
                           value={editingStrategy!.description}
                           onChange={(e) => updateEditingField("description", e.target.value)}
@@ -265,7 +274,7 @@ export default function SettingsPage() {
                               size="sm"
                               variant="ghost"
                               onClick={handleDeleteStrategy}
-                              className="text-error hover:bg-red-50"
+                              aria-label="Delete project" className="text-error hover:bg-red-50"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -298,7 +307,7 @@ export default function SettingsPage() {
                   {showAddScenario && isEditing && (
                     <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
                       <div className="flex items-center gap-3">
-                        <select
+                        <select aria-label="Select option"
                           value={newScenarioStrategy}
                           onChange={(e) => setNewScenarioStrategy(e.target.value as ProjectScenario)}
                           className="flex-1 rounded border border-gray-300 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent bg-white"
@@ -330,14 +339,14 @@ export default function SettingsPage() {
                             <button
                               onClick={() => moveScenario(scenario.id, -1)}
                               disabled={index === 0}
-                              className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                              className="text-gray-500 hover:text-gray-600 disabled:opacity-30"
                             >
                               <ChevronUp className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => moveScenario(scenario.id, 1)}
                               disabled={index === displayStrategy.scenarios.length - 1}
-                              className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                              className="text-gray-500 hover:text-gray-600 disabled:opacity-30"
                             >
                               <ChevronDown className="h-4 w-4" />
                             </button>
@@ -348,7 +357,7 @@ export default function SettingsPage() {
                           {isEditing ? (
                             <div className="space-y-2">
                               <div className="flex items-center gap-2">
-                                <input
+                                <input aria-label="Input field"
                                   type="text"
                                   value={scenario.name}
                                   onChange={(e) =>
@@ -360,7 +369,7 @@ export default function SettingsPage() {
                                   {scenario.strategy.replace(/-/g, " ")}
                                 </span>
                               </div>
-                              <input
+                              <input aria-label="Input field"
                                 type="text"
                                 value={scenario.description}
                                 onChange={(e) =>
@@ -387,7 +396,7 @@ export default function SettingsPage() {
                         {isEditing && (
                           <button
                             onClick={() => removeScenario(scenario.id)}
-                            className="text-gray-400 hover:text-error mt-1"
+                            className="text-gray-500 hover:text-error mt-1"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -396,7 +405,7 @@ export default function SettingsPage() {
                     ))}
 
                     {displayStrategy.scenarios.length === 0 && (
-                      <p className="text-sm text-gray-400 text-center py-8">
+                      <p className="text-sm text-gray-500 text-center py-8">
                         No scenarios in this strategy. {isEditing ? "Add one above." : ""}
                       </p>
                     )}

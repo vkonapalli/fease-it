@@ -50,8 +50,7 @@ export function BudgetVsActualInputs() {
                 control={control}
                 render={({ field, fieldState: { error } }) => (
                   <div className="w-full">
-                    <input
-                      {...field}
+                    <input aria-label="Input field"                       {...field}
                       type="text"
                       className={cn(
                         "w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm",
@@ -111,7 +110,7 @@ export function BudgetVsActualInputs() {
               <button
                 type="button"
                 onClick={() => remove(index)}
-                className="text-error hover:text-error/80 p-1"
+                aria-label="Delete item" className="text-error hover:text-error/80 p-1"
               >
                 <Trash2 className="h-4 w-4" />
               </button>

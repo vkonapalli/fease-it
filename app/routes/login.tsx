@@ -6,6 +6,12 @@ import { Button } from "~/components/ui/Button";
 import { getSupabaseServerClient } from "~/lib/supabase/server";
 import { isSupabaseConfigured } from "~/lib/supabase/client";
 
+export const meta: Route.MetaFunction = () => {
+  return [
+    { title: "Login | Fease It" }
+  ];
+};
+
 export async function loader({ request }: Route.LoaderArgs) {
   if (!isSupabaseConfigured()) {
     // Local-only mode: no auth needed, redirect to projects
@@ -100,11 +106,11 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
           )}
 
           <Form method="post" className="space-y-3">
-            <input type="hidden" name="intent" value={mode} />
+            <input aria-label="Input field" type="hidden" name="intent" value={mode} />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
+              <input aria-label="Input field"
                 type="email"
                 name="email"
                 required
@@ -116,7 +122,7 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
             {mode !== "magic" && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                <input
+                <input aria-label="Input field"
                   type="password"
                   name="password"
                   required
@@ -171,7 +177,7 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
           </div>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
+        <p className="text-center text-xs text-gray-500 mt-6">
           <Link to="/projects" className="hover:text-gray-600 underline">
             Continue without signing in
           </Link>

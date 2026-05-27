@@ -41,8 +41,7 @@ export function OperatingInputs() {
                   name={`operating.costs.${index}.name`}
                   control={control}
                   render={({ field, fieldState: { error } }) => (
-                    <input
-                      {...field}
+                    <input aria-label="Input field"                       {...field}
                       type="text"
                       className={cn(
                         "flex-1 rounded-lg border px-3 py-1.5 text-sm",
@@ -96,7 +95,7 @@ export function OperatingInputs() {
                 <button
                   type="button"
                   onClick={() => remove(index)}
-                  className="text-error hover:text-error/80 p-1"
+                  aria-label="Delete item" className="text-error hover:text-error/80 p-1"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>

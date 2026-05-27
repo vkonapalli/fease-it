@@ -13,6 +13,12 @@ import {
 import type { Route } from "./+types/root";
 import "./app.css";
 import { useAppStore } from "~/stores/appStore";
+
+export const meta: Route.MetaFunction = () => {
+  return [
+    { title: "Fease It" }
+  ];
+};
 import { getAuthUser } from "~/lib/auth.server";
 import { isSupabaseConfigured } from "~/lib/supabase/client";
 

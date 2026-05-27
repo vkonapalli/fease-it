@@ -68,8 +68,7 @@ function CapitalSpreadItem({ index, remove }: { index: number; remove: (index: n
             name={`capitalSpread.${index}.description`}
             control={control}
             render={({ field, fieldState: { error } }) => (
-              <input
-                {...field}
+              <input aria-label="Input field"                 {...field}
                 value={field.value ?? ""}
                 type="text"
                 className={cn(
@@ -83,7 +82,7 @@ function CapitalSpreadItem({ index, remove }: { index: number; remove: (index: n
           <button
             type="button"
             onClick={() => remove(index)}
-            className="text-error hover:text-error/80 p-1"
+            aria-label="Delete item" className="text-error hover:text-error/80 p-1"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -111,8 +110,7 @@ function CapitalSpreadItem({ index, remove }: { index: number; remove: (index: n
           control={control}
           render={({ field, fieldState: { error } }) => (
             <div className="flex flex-col gap-1">
-              <input
-                {...field}
+              <input aria-label="Input field"                 {...field}
                 value={field.value ?? ""}
                 type="text"
                 className={cn(
@@ -130,8 +128,7 @@ function CapitalSpreadItem({ index, remove }: { index: number; remove: (index: n
           name={`capitalSpread.${index}.type`}
           control={control}
           render={({ field, fieldState: { error } }) => (
-            <select
-              {...field}
+            <select aria-label="Select option"               {...field}
               value={field.value ?? ""}
               className={cn(
                 "rounded-lg border px-3 py-2 text-sm bg-white",
@@ -150,8 +147,7 @@ function CapitalSpreadItem({ index, remove }: { index: number; remove: (index: n
           name={`capitalSpread.${index}.linkedStackCategory`}
           control={control}
           render={({ field, fieldState: { error } }) => (
-            <select
-              {...field}
+            <select aria-label="Select option"               {...field}
               value={field.value ?? ""}
               onChange={(e) => field.onChange(e.target.value || undefined)}
               className={cn(

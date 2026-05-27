@@ -14,6 +14,13 @@ import { JVInputs } from "~/components/inputs/JVInputs";
 import { CashflowInputs } from "~/components/inputs/CashflowInputs";
 import { BudgetVsActualInputs } from "~/components/inputs/BudgetVsActualInputs";
 import { SDAInputs } from "~/components/inputs/SDAInputs";
+
+export const meta: Route.MetaFunction = () => {
+  return [
+    { title: "Project | Fease It" }
+  ];
+};
+
 import { CapitalStackInputs } from "~/components/inputs/CapitalStackInputs";
 import { CapitalSpreadInputs } from "~/components/inputs/CapitalSpreadInputs";
 import { CopyScenarioDialog } from "~/components/inputs/CopyScenarioDialog";
@@ -60,13 +67,15 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     throw redirect("/login", { headers });
   }
 
-  // Verify project ownership before querying scenarios
-  const project = await db.getProject(request, user.id, projectId);
+  // Verify project ownership and get scenarios
+  const [project, scenarios] = await Promise.all([
+    db.getProject(request, user.id, projectId),
+    db.getScenarios(request, user.id, projectId)
+  ]);
+
   if (!project) {
     throw redirect("/projects");
   }
-
-  const scenarios = await db.getScenarios(request, user.id, projectId);
 
   // Deduplicate scenarios from DB just in case of dirty data
   const uniqueScenarios = [];
@@ -170,7 +179,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       return routerData({ ok: true, id, intent }, { headers });
     }
 
-    if (intent === "duplicate-scenario" && id && name && inputs) {
+    if (intent === "duplicate-scenario" && name && inputs) {
       const scenario = await db.createScenario(
         request,
         user.id,
@@ -552,7 +561,7 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
               }}
             >
               {editingScenarioId === s.id ? (
-                <input
+                <input aria-label="Input field"
                   type="text"
                   autoFocus
                   defaultValue={s.name}
@@ -639,7 +648,7 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
             <Plus className="h-3 w-3 mr-1" />
             Add
           </Button>
-          {saving && <span className="text-xs text-gray-400 ml-auto">Saving...</span>}
+          {saving && <span className="text-xs text-gray-500 ml-auto">Saving...</span>}
         </div>
       </div>
 

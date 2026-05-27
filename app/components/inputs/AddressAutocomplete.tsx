@@ -30,8 +30,8 @@ export function AddressAutocomplete({ value, onSelect, placeholder, disabled }: 
   return (
     <div className="relative">
       <div className="relative">
-        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <input
+        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+        <input aria-label="Input field"
           ref={inputRef}
           type="text"
           value={localValue}
@@ -45,7 +45,7 @@ export function AddressAutocomplete({ value, onSelect, placeholder, disabled }: 
         <p className="text-xs text-amber-600 mt-1">{error}</p>
       )}
       {!ready && !error && (
-        <p className="text-xs text-gray-400 mt-1">Loading address search...</p>
+        <p className="text-xs text-gray-500 mt-1">Loading address search...</p>
       )}
     </div>
   );
