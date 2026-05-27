@@ -1,6 +1,6 @@
 import { debounce, isEqual } from "~/lib/utils";
 import { useCallback, useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
-import { useNavigate, useParams, useFetcher, useLoaderData, redirect, useSubmit, useNavigation } from "react-router";
+import { useNavigate, useParams, useFetcher, useLoaderData, redirect, useSubmit, useNavigation, data as routerData } from "react-router";
 import type { Route } from "./+types/project-detail";
 import { parseRequestData, validateOrigin } from "~/lib/utils.server";
 import { PropertyInputs } from "~/components/inputs/PropertyInputs";
@@ -89,7 +89,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     }
   }
 
-  return {
+  return routerData({
     project: { id: project.id, name: project.name },
     scenarios: uniqueScenarios.map((s) => ({
       id: s.id,
@@ -100,7 +100,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       remoteId: s.id,
     })),
     localOnly: false,
-  };
+  }, { headers });
 }
 
 type ActionData =
@@ -139,7 +139,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     return { ok: true };
   }
 
-  const { user } = await requireAuth(request);
+  const { user, headers } = await requireAuth(request);
   if (!user) throw redirect("/login");
 
   try {
@@ -147,9 +147,9 @@ export async function action({ request, params }: Route.ActionArgs) {
       await db.deleteScenario(request, user.id, id, projectId);
       const remaining = await db.getScenarios(request, user.id, projectId);
       if (remaining && remaining.length > 0) {
-         return redirect(`/projects/${projectId}/scenarios/${remaining[0].id}`);
+         return redirect(`/projects/${projectId}/scenarios/${remaining[0].id}`, { headers });
       }
-      return redirect(`/projects/${projectId}`);
+      return redirect(`/projects/${projectId}`, { headers });
     }
 
     if (intent === "create-scenario" && name && inputs) {
@@ -166,19 +166,19 @@ export async function action({ request, params }: Route.ActionArgs) {
       
       // If it was submitted via background fetcher (no navigation intended), return JSON
       if (request.headers.get("X-Remix-Fetch") === "yes" || request.headers.get("Sec-Fetch-Mode") === "cors") {
-        return { ok: true, scenario, id: scenario.id, intent: "create-scenario" };
+        return routerData({ ok: true, scenario, id: scenario.id, intent: "create-scenario" }, { headers });
       }
-      return redirect(`/projects/${projectId}/scenarios/${scenario.id}`);
+      return redirect(`/projects/${projectId}/scenarios/${scenario.id}`, { headers });
     }
 
     if (intent === "rename-scenario" && id && name) {
       await db.updateScenario(request, user.id, projectId, id, { name });
-      return { ok: true, id, intent };
+      return routerData({ ok: true, id, intent }, { headers });
     }
 
     if (intent === "update-scenario" && id && inputs) {
       await db.updateScenario(request, user.id, projectId, id, { inputs: inputs as FeasibilityInputs });
-      return { ok: true, id, intent };
+      return routerData({ ok: true, id, intent }, { headers });
     }
 
     if (intent === "duplicate-scenario" && id && name && inputs) {
@@ -190,13 +190,13 @@ export async function action({ request, params }: Route.ActionArgs) {
         inputs as FeasibilityInputs,
         0 // sortOrder
       );
-      return redirect(`/projects/${projectId}/scenarios/${scenario.id}`);
+      return redirect(`/projects/${projectId}/scenarios/${scenario.id}`, { headers });
     }
   } catch (err: any) {
-    return { error: err.message };
+    return routerData({ error: err.message }, { headers });
   }
 
-  return { error: "Unknown intent" };
+  return routerData({ error: "Unknown intent" }, { headers });
 }
 
 export default function ProjectDetail({ loaderData }: Route.ComponentProps) {

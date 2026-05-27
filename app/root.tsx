@@ -7,6 +7,7 @@ import {
   Scripts,
   ScrollRestoration,
   useLoaderData,
+  data,
 } from "react-router";
 
 import type { Route } from "./+types/root";
@@ -29,8 +30,8 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const { user } = await getAuthUser(request);
-  return { user, isConfigured: isSupabaseConfigured() };
+  const { user, headers } = await getAuthUser(request);
+  return data({ user, isConfigured: isSupabaseConfigured() }, { headers });
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {

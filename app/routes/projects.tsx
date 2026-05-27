@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Form, Link, redirect, useFetcher, useLoaderData, useNavigate } from "react-router";
+import { Form, Link, redirect, useFetcher, useLoaderData, useNavigate, data as routerData } from "react-router";
 import type { Route } from "./+types/projects";
 import { Plus, FolderOpen, Trash2, Loader2 } from "lucide-react";
 import { Button } from "~/components/ui/Button";
@@ -36,10 +36,10 @@ export async function loader({ request }: Route.LoaderArgs) {
     .order("created_at", { ascending: false });
 
   if (error) {
-    throw new Response(error.message, { status: 500 });
+    throw new Response(error.message, { status: 500, headers });
   }
 
-  return { projects: (data ?? []) as Project[], localOnly: false };
+  return routerData({ projects: (data ?? []) as Project[], localOnly: false }, { headers });
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -75,9 +75,9 @@ export async function action({ request }: Route.ActionArgs) {
   if (intent === "delete") {
     const { error } = await supabase.from("projects").delete().eq("id", id).eq("user_id", user.id);
     if (error) {
-      return { error: error.message };
+      return routerData({ error: error.message }, { headers });
     }
-    return { ok: true };
+    return routerData({ ok: true }, { headers });
   }
 
   if (intent === "create") {
@@ -89,7 +89,7 @@ export async function action({ request }: Route.ActionArgs) {
       .single();
 
     if (pError || !project) {
-      return { error: pError?.message || "Failed to create project" };
+      return routerData({ error: pError?.message || "Failed to create project" }, { headers });
     }
 
     // 2. Create scenarios
@@ -106,13 +106,13 @@ export async function action({ request }: Route.ActionArgs) {
       );
 
     if (sError) {
-       return { error: sError.message };
+       return routerData({ error: sError.message }, { headers });
     }
 
-    return redirect(`/projects/${project.id}`);
+    return redirect(`/projects/${project.id}`, { headers });
   }
 
-  return { error: "Unknown intent." };
+  return routerData({ error: "Unknown intent." }, { headers });
 }
 
 export default function ProjectsPage({ loaderData }: Route.ComponentProps) {
