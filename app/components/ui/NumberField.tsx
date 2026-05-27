@@ -31,18 +31,26 @@ function buildParser(prefix?: string, min?: number, max?: number) {
     .pipe(num);
 }
 
+const displayValueSchema = z.number().nullish();
+
 function toDisplay(value: number, prefix?: string): string {
+  const parsed = displayValueSchema.safeParse(value);
+  if (!parsed.success || parsed.data == null) return "";
+
   if (prefix === "$") {
-    return formatCurrency(value);
+    return formatCurrency(parsed.data);
   }
-  return value.toString();
+  return parsed.data.toString();
 }
 
 function toEdit(value: number, prefix?: string): string {
+  const parsed = displayValueSchema.safeParse(value);
+  if (!parsed.success || parsed.data == null) return "";
+
   if (prefix === "$") {
-    return Math.round(value).toString();
+    return Math.round(parsed.data).toString();
   }
-  return value.toString();
+  return parsed.data.toString();
 }
 
 export function NumberField({
