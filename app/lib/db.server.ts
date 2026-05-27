@@ -47,7 +47,8 @@ export async function getScenarios(request: Request, userId: string, projectId: 
     .from("scenarios")
     .select("*")
     .eq("project_id", projectId)
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
 
   if (error) throw error;
   return (data ?? []) as DbScenario[];

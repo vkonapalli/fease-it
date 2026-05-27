@@ -222,12 +222,17 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
   const duplicateScenarioWithOptions = useAppStore((s) => s.duplicateScenarioWithOptions);
 
   const [copyDialogId, setCopyDialogId] = useState<string | null>(null);
+  const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null);
   const scenarioFromUrl = parseScenarioFromSplat(splat);
   const initialised = useRef(false);
 
+  const isStoreReady = hasHydrated && storeProjectId === project?.id;
+  const baseScenarios = isStoreReady ? scenarios : initialScenarios;
+  const currentActiveId = isStoreReady ? activeScenarioId : (scenarioFromUrl || initialScenarios[0]?.id);
+
   const activeScenario = useMemo(
-    () => scenarios.find((s) => s.id === activeScenarioId) ?? scenarios[0] ?? null,
-    [scenarios, activeScenarioId]
+    () => baseScenarios.find((s) => s.id === currentActiveId) ?? baseScenarios[0] ?? null,
+    [baseScenarios, currentActiveId]
   );
 
   const methods = useForm<FeasibilityInputs>({
@@ -526,8 +531,8 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
   const deletingId = isDeleting ? ((navigationFormData?.get("id") || fetcher.formData?.get("id")) as string) : null;
   const displayScenarios = useMemo(() => {
     const filtered = deletingId 
-      ? scenarios.filter((s) => s.id !== deletingId && s.remoteId !== deletingId) 
-      : scenarios;
+      ? baseScenarios.filter((s) => s.id !== deletingId && s.remoteId !== deletingId) 
+      : baseScenarios;
     // Defensive: deduplicate by id to prevent duplicate key warnings.
     // If duplicates exist it indicates a store bug; deduplication keeps UI stable.
     const seen = new Set<string>();
@@ -539,7 +544,7 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
       seen.add(s.id);
       return true;
     });
-  }, [scenarios, deletingId]);
+  }, [baseScenarios, deletingId]);
 
   const copySource = copyDialogId ? displayScenarios.find((s) => s.id === copyDialogId) ?? null : null;
 
@@ -553,7 +558,7 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
               type="button"
               key={s.id}
               className={`group flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${
-                s.id === activeScenarioId
+                s.id === currentActiveId
                   ? "bg-primary text-white"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
@@ -565,20 +570,39 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
                 }
               }}
             >
-              <span
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => handleRenameScenario(s.id, e.currentTarget.textContent || s.name)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    e.currentTarget.blur();
-                  }
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {s.name}
-              </span>
+              {editingScenarioId === s.id ? (
+                <input
+                  type="text"
+                  autoFocus
+                  defaultValue={s.name}
+                  size={Math.max(s.name.length, 5)}
+                  className="bg-transparent border-none outline-none p-0 m-0 text-inherit focus:ring-0 max-w-[150px]"
+                  onBlur={(e) => {
+                    handleRenameScenario(s.id, e.target.value.trim() || s.name);
+                    setEditingScenarioId(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.currentTarget.blur();
+                    } else if (e.key === "Escape") {
+                      setEditingScenarioId(null);
+                    }
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  onDoubleClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <span
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setEditingScenarioId(s.id);
+                  }}
+                  className="truncate max-w-[150px]"
+                  title="Double click to rename"
+                >
+                  {s.name}
+                </span>
+              )}
               <div
                 className="ml-1 text-xs opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
                 title="Copy scenario"
