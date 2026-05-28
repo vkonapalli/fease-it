@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
 import { formatCurrency, formatPercent } from "~/lib/utils";
-import type { YearlyProjection } from "~/types";
+import type { YearlyProjection } from "@fease-it/schemas";
 
 interface YearlyProjectionTableProps {
   projections: YearlyProjection[];

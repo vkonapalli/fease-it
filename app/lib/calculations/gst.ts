@@ -10,7 +10,7 @@
  * - going-concern: GST-free business sale
  */
 
-import type { GSTConfig, GSTTreatment } from "~/types";
+import type { GSTConfig, GSTTreatment } from "@fease-it/schemas";
 
 export const GST_RATE = 0.1;
 

@@ -1,5 +1,5 @@
 import { cn } from "~/lib/utils";
-import type { GSTCostTreatment } from "~/types";
+import type { GSTCostTreatment } from "@fease-it/schemas";
 
 interface GSTToggleProps {
   value: GSTCostTreatment;

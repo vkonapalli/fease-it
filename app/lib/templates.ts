@@ -1,5 +1,5 @@
-import { FeasibilityInputsSchema } from "./schemas";
-import type { FeasibilityInputs, ProjectScenario, StrategyScenario, Strategy } from "~/types";
+import { FeasibilityInputsSchema } from "@fease-it/schemas";
+import type { FeasibilityInputs, ProjectScenario, StrategyScenario, Strategy } from "@fease-it/schemas";
 
 // ============================================================
 // Base Template Inputs

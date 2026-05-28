@@ -23,7 +23,7 @@ import {
   Package,
   List,
 } from "lucide-react";
-import type { Strategy, StrategyScenario, ProjectScenario } from "~/types";
+import type { Strategy, StrategyScenario, ProjectScenario } from "@fease-it/schemas";
 
 const STRATEGY_OPTIONS: { value: ProjectScenario; label: string }[] = [
   { value: "build-sell", label: "Build & Sell" },

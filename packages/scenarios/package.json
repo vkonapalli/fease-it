@@ -1,0 +1,12 @@
+{
+  "name": "@fease-it/scenarios",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@fease-it/db": "workspace:*",
+    "@fease-it/schemas": "workspace:*",
+    "drizzle-orm": "*",
+    "verror": "*"
+  }
+}

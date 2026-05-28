@@ -13,9 +13,12 @@ import {
   applyOverrides,
   setDeep,
 } from "~/lib/ai/tools";
-import * as db from "~/lib/db.server";
+import { getProject } from "@fease-it/projects";
+import { getScenarios, updateScenario, createScenario } from "@fease-it/scenarios";
+import { globalDb } from "~/lib/context.server";
+import { logger } from "@fease-it/logger";
 import { createInputsForStrategy, getAllStrategies, createScenariosFromStrategy } from "~/lib/templates";
-import type { ProjectScenario, FeasibilityInputs } from "~/types";
+import type { ProjectScenario, FeasibilityInputs } from "@fease-it/schemas";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
@@ -124,24 +127,30 @@ async function handleChat(
       if (action.type === "create_scenario") {
         const baseInputs = createInputsForStrategy(action.strategy as ProjectScenario);
         const inputs = applyOverrides(baseInputs as unknown as Record<string, unknown>, action.overrides) as unknown as FeasibilityInputs;
-        const scenario = await db.createScenario(
-          request,
-          user.id,
+        const scenario = await createScenario({
+          db: globalDb!,
+          logger,
+          userId: user.id,
           projectId,
-          action.name || `New ${action.strategy}`,
+          name: action.name || `New ${action.strategy}`,
           inputs,
-          0
-        );
+          sortOrder: 0
+        });
         results.push({ type: "create_scenario", id: scenario.id, name: scenario.name });
       } else if (action.type === "update_inputs" && activeScenarioId) {
-        const scenarios = await db.getScenarios(request, user.id, projectId);
-        const active = scenarios.find((s) => s.id === activeScenarioId);
+        const scenarios = await getScenarios({ db: globalDb!, logger, userId: user.id, projectId });
+        const active = scenarios.find((s: any) => s.id === activeScenarioId);
         if (active) {
           const merged = structuredClone(active.inputs) as unknown as Record<string, unknown>;
           for (const [path, value] of Object.entries(action.changes)) {
             setDeep(merged, path, value);
           }
-          await db.updateScenario(request, user.id, projectId, activeScenarioId, {
+          await updateScenario({
+            db: globalDb!,
+            logger,
+            userId: user.id,
+            projectId,
+            scenarioId: activeScenarioId,
             inputs: merged as unknown as FeasibilityInputs,
           });
           results.push({ type: "update_inputs", id: activeScenarioId });
@@ -152,7 +161,7 @@ async function handleChat(
         if (strategy) {
           const scenarios = createScenariosFromStrategy(strategy, action.selectedIds);
           for (const s of scenarios) {
-            const scenario = await db.createScenario(request, user.id, projectId, s.name, s.inputs, 0);
+            const scenario = await createScenario({ db: globalDb!, logger, userId: user.id, projectId, name: s.name, inputs: s.inputs, sortOrder: 0 });
             results.push({ type: "create_scenario", id: scenario.id, name: scenario.name });
           }
         }

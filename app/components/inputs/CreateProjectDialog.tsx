@@ -5,8 +5,8 @@ import { BUILT_IN_STRATEGIES, getAllStrategies, createScenariosFromStrategy, cre
 import { useAppStore } from "~/stores/appStore";
 import { isSupabaseConfigured } from "~/lib/supabase/client";
 import { FolderOpen, X, Check, ChevronDown, Settings, Trash2 } from "lucide-react";
-import type { Strategy, StrategyScenario, FeasibilityInputs, Project } from "~/types";
-import { asMoney, asPercentage, asNat, asPositiveInt } from "~/lib/fundamental-types";
+import type { Strategy, StrategyScenario, FeasibilityInputs, Project } from "@fease-it/schemas";
+import { asMoney, asPercentage, asNat, asPositiveInt } from "@fease-it/schemas";
 import type { Scenario } from "~/stores/appStore";
 
 interface CreateProjectDialogProps {

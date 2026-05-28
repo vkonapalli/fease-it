@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
 import { formatCurrency, formatPercent } from "~/lib/utils";
-import type { SensitivityRow } from "~/types";
+import type { SensitivityRow } from "@fease-it/schemas";
 
 interface SensitivityAnalysisProps {
   sensitivity: SensitivityRow[];

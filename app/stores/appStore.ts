@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { FeasibilityInputs, Strategy } from "~/types";
+import type { FeasibilityInputs, Strategy } from "@fease-it/schemas";
 import { createBaseInputs } from "~/lib/templates";
 import { isEqual } from "~/lib/utils";
 

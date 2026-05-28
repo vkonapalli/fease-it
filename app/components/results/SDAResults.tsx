@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
 import { formatCurrency } from "~/lib/utils";
 import { calculateSDA } from "~/lib/calculations/sda";
-import type { SDAUnitConfig } from "~/types";
+import type { SDAUnitConfig } from "@fease-it/schemas";
 
 interface SDAResultsProps {
   sdaConfig: SDAUnitConfig;

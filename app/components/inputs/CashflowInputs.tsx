@@ -3,8 +3,8 @@ import { NumberField } from "~/components/ui/NumberField";
 import { Button } from "~/components/ui/Button";
 import { Toggle } from "~/components/ui/Toggle";
 import { useFormContext, Controller, useFieldArray } from "react-hook-form";
-import type { FeasibilityInputs, CashflowFrequency } from "~/types";
-import { asMoney, asPercentage, asNat, asPositiveInt } from "~/lib/fundamental-types";
+import type { FeasibilityInputs, CashflowFrequency } from "@fease-it/schemas";
+import { asMoney, asPercentage, asNat, asPositiveInt } from "@fease-it/schemas";
 import { Plus, Trash2 } from "lucide-react";
 import { cn } from "~/lib/utils";
 

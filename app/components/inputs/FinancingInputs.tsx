@@ -4,7 +4,7 @@ import { NumberField } from "~/components/ui/NumberField";
 import { Toggle } from "~/components/ui/Toggle";
 import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
 import { useFormContext, Controller } from "react-hook-form";
-import type { FeasibilityInputs } from "~/types";
+import type { FeasibilityInputs } from "@fease-it/schemas";
 
 const LVR_BASE_OPTIONS = [
   { label: "Net GRV", value: "net-grv" as const },
