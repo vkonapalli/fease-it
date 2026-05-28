@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
 import { formatCurrency, formatPercent } from "~/lib/utils";
-import type { JVResult } from "~/types";
+import type { JVResult } from "@fease-it/schemas";
 
 interface JVSummaryProps {
   jv: JVResult;

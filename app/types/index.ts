@@ -1,2 +1,2 @@
-export * from "../lib/schemas";
-export * from "../lib/fundamental-types";
+export * from "@fease-it/schemas";
+export * from "@fease-it/schemas";

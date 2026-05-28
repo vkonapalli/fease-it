@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PositiveInt, Money, NetMoney, Percentage, Nat, FromStringified } from "./fundamental-types";
+export * from "./fundamental-types";
 
 // --- Enums & Literals ---
 export const ProjectScenarioSchema = z.enum([

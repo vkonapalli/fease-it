@@ -3,7 +3,7 @@ import { NumberField } from "~/components/ui/NumberField";
 import { useFormContext, Controller } from "react-hook-form";
 import { useMemo } from "react";
 import { cn } from "~/lib/utils";
-import type { FeasibilityInputs } from "~/types";
+import type { FeasibilityInputs } from "@fease-it/schemas";
 import { calculateLandTax, countLandTaxPayments } from "~/lib/constants/landTax";
 import { formatCurrency } from "~/lib/calculations/stampDuty";
 import { Info } from "lucide-react";

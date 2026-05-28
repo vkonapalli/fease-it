@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
 import { formatCurrency } from "~/lib/utils";
-import type { BudgetVsActual } from "~/types";
+import type { BudgetVsActual } from "@fease-it/schemas";
 
 interface BudgetVsActualTableProps {
   budgetVsActual: BudgetVsActual;

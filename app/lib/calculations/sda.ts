@@ -8,8 +8,8 @@ import type {
   SDAResult,
   FeasibilityInputs,
   ProjectScenario,
-} from "~/types";
-import { SDAResultSchema } from "~/lib/schemas";
+} from "@fease-it/schemas";
+import { SDAResultSchema } from "@fease-it/schemas";
 
 export interface SDACalculationInputs {
   units: number;

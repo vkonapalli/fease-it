@@ -2,7 +2,7 @@ import { Collapsible } from "~/components/ui/Collapsible";
 import { NumberField } from "~/components/ui/NumberField";
 import { Toggle } from "~/components/ui/Toggle";
 import { useFormContext, Controller } from "react-hook-form";
-import type { FeasibilityInputs, SDAUnitConfig } from "~/types";
+import type { FeasibilityInputs, SDAUnitConfig } from "@fease-it/schemas";
 
 const SDA_SCENARIO_OPTIONS: { label: string; value: SDAUnitConfig["sdaScenario"] }[] = [
   { label: "Full SDA", value: "full" },

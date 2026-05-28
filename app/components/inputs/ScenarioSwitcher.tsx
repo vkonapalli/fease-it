@@ -1,6 +1,6 @@
 import { Toggle } from "~/components/ui/Toggle";
 import { useFormContext, Controller } from "react-hook-form";
-import type { FeasibilityInputs, ProjectScenario } from "~/types";
+import type { FeasibilityInputs, ProjectScenario } from "@fease-it/schemas";
 
 const SCENARIO_OPTIONS: { label: string; value: ProjectScenario }[] = [
   { label: "Build & Sell", value: "build-sell" },

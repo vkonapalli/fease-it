@@ -4,7 +4,7 @@ import { NumberField } from "~/components/ui/NumberField";
 import { Toggle } from "~/components/ui/Toggle";
 import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
 import { useFormContext, Controller } from "react-hook-form";
-import type { FeasibilityInputs, GSTTreatment } from "~/types";
+import type { FeasibilityInputs, GSTTreatment } from "@fease-it/schemas";
 
 const GST_OPTIONS: { label: string; value: GSTTreatment }[] = [
   { label: "GST-Free (Existing Residential)", value: "gst-free" },

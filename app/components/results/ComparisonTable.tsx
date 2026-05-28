@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
 import { formatCurrency, formatPercent } from "~/lib/utils";
-import type { ComparisonRow } from "~/types";
+import type { ComparisonRow } from "@fease-it/schemas";
 
 interface ComparisonTableProps {
   comparison: ComparisonRow[];

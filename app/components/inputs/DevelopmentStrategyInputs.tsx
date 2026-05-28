@@ -4,8 +4,8 @@ import { NumberField } from "~/components/ui/NumberField";
 import { Button } from "~/components/ui/Button";
 import { useFormContext, Controller, useFieldArray } from "react-hook-form";
 import { cn } from "~/lib/utils";
-import type { FeasibilityInputs } from "~/types";
-import { asMoney, asPercentage, asNat, asPositiveInt } from "~/lib/fundamental-types";
+import type { FeasibilityInputs } from "@fease-it/schemas";
+import { asMoney, asPercentage, asNat, asPositiveInt } from "@fease-it/schemas";
 import { Plus, Trash2 } from "lucide-react";
 
 const STRATEGY_OPTIONS = [

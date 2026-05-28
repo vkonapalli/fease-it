@@ -5,8 +5,8 @@ import { Toggle } from "~/components/ui/Toggle";
 import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
 import { Button } from "~/components/ui/Button";
 import { useFormContext, Controller } from "react-hook-form";
-import type { FeasibilityInputs } from "~/types";
-import { asMoney, asPercentage, asNat, asPositiveInt } from "~/lib/fundamental-types";
+import type { FeasibilityInputs } from "@fease-it/schemas";
+import { asMoney, asPercentage, asNat, asPositiveInt } from "@fease-it/schemas";
 import { RefreshCw } from "lucide-react";
 
 interface CapitalStackInputsProps {

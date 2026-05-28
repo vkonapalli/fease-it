@@ -1,0 +1,10 @@
+{
+  "name": "@fease-it/logger",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": {
+    "pino": "*",
+    "pino-pretty": "*"
+  }
+}

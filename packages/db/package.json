@@ -1,0 +1,10 @@
+{
+  "name": "@fease-it/db",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": {
+    "drizzle-orm": "*",
+    "@fease-it/schemas": "workspace:*"
+  }
+}

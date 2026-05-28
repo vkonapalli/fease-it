@@ -1,5 +1,5 @@
 import { useFormContext } from "react-hook-form";
-import type { ProjectScenario, ScenarioResult } from "~/types";
+import type { ProjectScenario, ScenarioResult } from "@fease-it/schemas";
 import { formatCurrency } from "~/lib/utils";
 
 interface ScenarioTabsProps {

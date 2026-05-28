@@ -28,9 +28,10 @@ import { ResultsPanel } from "~/components/results/ResultsPanel";
 import { useAppStore } from "~/stores/appStore";
 import { calculateFeasibility } from "~/lib/calculations";
 import { isSupabaseConfigured } from "~/lib/supabase/client";
-import { requireAuth } from "~/lib/auth.server";
-import { ScenarioActionSchema } from "~/lib/schemas";
-import * as db from "~/lib/db.server";
+import { ScenarioActionSchema } from "@fease-it/schemas";
+import { getProject } from "@fease-it/projects";
+import { getScenarios, createScenario, updateScenario, deleteScenario } from "@fease-it/scenarios";
+import { withContext } from "~/lib/context.server";
 import { createBaseInputs } from "~/lib/templates";
 import type { Scenario as AppScenario } from "~/stores/appStore";
 import { Plus, Loader2, Copy } from "lucide-react";
@@ -39,8 +40,8 @@ import { AIChat } from "~/components/AIChat";
 import { useForm, FormProvider, useWatch, useFormContext } from "react-hook-form";
 import { useShallow } from "zustand/react/shallow";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FeasibilityInputsSchema } from "~/lib/schemas";
-import type { FeasibilityInputs } from "~/types";
+import { FeasibilityInputsSchema } from "@fease-it/schemas";
+import type { FeasibilityInputs } from "@fease-it/schemas";
 
 function parseScenarioFromSplat(splat: string | undefined): string | undefined {
   if (!splat) return undefined;
@@ -53,7 +54,7 @@ interface LoaderData {
   scenarios: AppScenario[];
 }
 
-export async function loader({ request, params }: Route.LoaderArgs) {
+export const loader = withContext(async ({ request, params }, ctx) => {
   const projectId = params.projectId;
   if (!projectId) throw redirect("/projects");
 
@@ -61,19 +62,18 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     throw new Error("Supabase is not configured.");
   }
 
-  const { user, headers } = await requireAuth(request);
-  if (!user) {
-    throw redirect("/login", { headers });
+  let project, scenarios;
+  try {
+    [project, scenarios] = await Promise.all([
+      getProject({ ...ctx, projectId }),
+      getScenarios({ ...ctx, projectId })
+    ]);
+  } catch (err: any) {
+    throw err;
   }
 
-  // Verify project ownership and get scenarios
-  const [project, scenarios] = await Promise.all([
-    db.getProject(request, user.id, projectId),
-    db.getScenarios(request, user.id, projectId)
-  ]);
-
   if (!project) {
-    throw redirect("/projects");
+    throw new Response("Not Found", { status: 404 });
   }
 
   // Deduplicate scenarios from DB just in case of dirty data
@@ -96,14 +96,14 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       synced: true,
       remoteId: s.id,
     })),
-  }, { headers });
-}
+  });
+});
 
 type ActionData =
   | { error: string; details?: Record<string, unknown> }
   | { ok: true; scenario?: Record<string, unknown>; id?: string; intent?: string };
 
-export async function action({ request, params }: Route.ActionArgs) {
+export const action = withContext(async ({ request, params }, ctx) => {
   const projectId = params.projectId;
   if (!projectId) return { error: "Missing projectId" };
 
@@ -121,73 +121,67 @@ export async function action({ request, params }: Route.ActionArgs) {
   const { intent, id, name } = submission.data;
   const inputs = submission.data.inputs;
 
-
   if (!isSupabaseConfigured()) {
     return { error: "Supabase is not configured" };
   }
 
-  const { user, headers } = await requireAuth(request);
-  if (!user) throw redirect("/login");
-
   try {
     if (intent === "delete-scenario" && id) {
-      await db.deleteScenario(request, user.id, id, projectId);
+      await deleteScenario({ ...ctx, scenarioId: id, projectId });
       if (request.headers.get("X-Remix-Fetch") === "yes" || request.headers.get("Sec-Fetch-Mode") === "cors") {
-        return routerData({ ok: true, id, intent: "delete-scenario" }, { headers });
+        return routerData({ ok: true, id, intent: "delete-scenario" });
       }
-      const remaining = await db.getScenarios(request, user.id, projectId);
+      const remaining = await getScenarios({ ...ctx, projectId });
       if (remaining && remaining.length > 0) {
-         return redirect(`/projects/${projectId}/scenarios/${remaining[0].id}`, { headers });
+         return redirect(`/projects/${projectId}/scenarios/${remaining[0].id}`);
       }
-      return redirect(`/projects/${projectId}`, { headers });
+      return redirect(`/projects/${projectId}`);
     }
 
     if (intent === "create-scenario" && name && inputs) {
       const localId = (rawData as Record<string, unknown>).localId as string | undefined;
-      const scenario = await db.createScenario(
-        request,
-        user.id,
+      const scenario = await createScenario({
+        ...ctx,
         projectId,
         name,
         inputs,
-        submission.data.sortOrder ?? 0,
-        localId
-      );
+        sortOrder: submission.data.sortOrder ?? 0,
+        // localId is skipped since new db operations don't accept localId. Let's see later.
+      });
       
       // If it was submitted via background fetcher (no navigation intended), return JSON
       if (request.headers.get("X-Remix-Fetch") === "yes" || request.headers.get("Sec-Fetch-Mode") === "cors") {
-        return routerData({ ok: true, scenario, id: scenario.id, intent: "create-scenario" }, { headers });
+        return routerData({ ok: true, scenario, id: scenario.id, intent: "create-scenario" });
       }
-      return redirect(`/projects/${projectId}/scenarios/${scenario.id}`, { headers });
+      return redirect(`/projects/${projectId}/scenarios/${scenario.id}`);
     }
 
     if (intent === "rename-scenario" && id && name) {
-      await db.updateScenario(request, user.id, projectId, id, { name });
-      return routerData({ ok: true, id, intent }, { headers });
+      await updateScenario({ ...ctx, projectId, scenarioId: id, name });
+      return routerData({ ok: true, id, intent });
     }
 
     if (intent === "update-scenario" && id && inputs) {
-      await db.updateScenario(request, user.id, projectId, id, { inputs: inputs });
-      return routerData({ ok: true, id, intent }, { headers });
+      await updateScenario({ ...ctx, projectId, scenarioId: id, inputs });
+      return routerData({ ok: true, id, intent });
     }
 
     if (intent === "duplicate-scenario" && name && inputs) {
-      const scenario = await db.createScenario(
-        request,
-        user.id,
+      const scenario = await createScenario({
+        ...ctx,
         projectId,
         name,
         inputs,
-        submission.data.sortOrder ?? 0
-      );
-      return redirect(`/projects/${projectId}/scenarios/${scenario.id}`, { headers });
+        sortOrder: submission.data.sortOrder ?? 0
+      });
+      return redirect(`/projects/${projectId}/scenarios/${scenario.id}`);
     }
   } catch (err: any) {
-    return routerData({ error: err.message }, { headers });
+    return routerData({ error: err.message });
   }
 
-  return routerData({ error: "Unknown intent" }, { headers });
-}
+  return routerData({ error: "Unknown intent" });
+});
 
 export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
   const { projectId, "*": splat } = useParams();

@@ -7,9 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
 import { CreateProjectDialog } from "~/components/inputs/CreateProjectDialog";
 import { parseRequestData, validateOrigin } from "~/lib/utils.server";
 import { getSupabaseServerClient } from "~/lib/supabase/server";
-import { requireAuth } from "~/lib/auth.server";
 import { isSupabaseConfigured } from "~/lib/supabase/client";
 import { useAppStore } from "~/stores/appStore";
+import { withContext } from "~/lib/context.server";
+import { getProjects, createProject, deleteProject } from "@fease-it/projects";
+import { createScenarios } from "@fease-it/scenarios";
 
 export const meta: Route.MetaFunction = () => {
   return [
@@ -25,30 +27,16 @@ export interface Project {
   updated_at: string;
 }
 
-export async function loader({ request }: Route.LoaderArgs) {
+export const loader = withContext(async ({ request }, ctx) => {
   if (!isSupabaseConfigured()) {
     return { projects: [], localOnly: true };
   }
 
-  const { user, supabase, headers } = await requireAuth(request);
-  if (!user || !supabase) {
-    return redirect("/login", { headers });
-  }
+  const data = await getProjects(ctx);
+  return routerData({ projects: (data ?? []) as Project[], localOnly: false });
+});
 
-  const { data, error } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    throw new Response(error.message, { status: 500, headers });
-  }
-
-  return routerData({ projects: (data ?? []) as Project[], localOnly: false }, { headers });
-}
-
-export async function action({ request }: Route.ActionArgs) {
+export const action = withContext(async ({ request }, ctx) => {
   if (request.method !== "GET" && !validateOrigin(request)) {
     return { error: "Invalid origin" };
   }
@@ -73,53 +61,35 @@ export async function action({ request }: Route.ActionArgs) {
     return { ok: true, localOnly: true };
   }
 
-  const { user, supabase, headers } = await requireAuth(request);
-  if (!user || !supabase) {
-    return redirect("/login", { headers });
-  }
-
-  if (intent === "delete") {
-    const { error } = await supabase.from("projects").delete().eq("id", id).eq("user_id", user.id);
-    if (error) {
-      return routerData({ error: error.message }, { headers });
-    }
-    return routerData({ ok: true }, { headers });
-  }
-
-  if (intent === "create") {
-    // 1. Create project
-    const { data: project, error: pError } = await supabase
-      .from("projects")
-      .insert({ name, user_id: user.id })
-      .select()
-      .single();
-
-    if (pError || !project) {
-      return routerData({ error: pError?.message || "Failed to create project" }, { headers });
+  try {
+    if (intent === "delete" && id) {
+      await deleteProject({ ...ctx, projectId: id });
+      return routerData({ ok: true });
     }
 
-    // 2. Create scenarios
-    const scenarioList = Array.isArray(scenarios) ? scenarios : [];
-    const { error: sError } = await supabase
-      .from("scenarios")
-      .insert(
-        scenarioList.map((s: any, i: number) => ({
-          project_id: project.id,
-          name: s.name,
-          inputs: s.inputs,
-          sort_order: i,
-        }))
-      );
+    if (intent === "create" && name) {
+      const project = await createProject({ ...ctx, name });
 
-    if (sError) {
-       return routerData({ error: sError.message }, { headers });
+      if (project) {
+        const scenarioList = Array.isArray(scenarios) ? scenarios : [];
+        await createScenarios({
+          ...ctx,
+          scenarios: scenarioList.map((s: any, i: number) => ({
+            projectId: project.id,
+            name: s.name,
+            inputs: s.inputs,
+            sortOrder: i,
+          })),
+        });
+        return redirect(`/projects/${project.id}`);
+      }
     }
-
-    return redirect(`/projects/${project.id}`, { headers });
+  } catch (err: any) {
+    return routerData({ error: err.message });
   }
 
-  return routerData({ error: "Unknown intent." }, { headers });
-}
+  return routerData({ error: "Unknown intent or missing parameters." });
+});
 
 export default function ProjectsPage({ loaderData }: Route.ComponentProps) {
   const { projects: initialProjects, localOnly } = loaderData;

@@ -1,4 +1,4 @@
-import type { FeasibilityResults, ScenarioResult, CashflowRow, YearlyProjection } from "~/types";
+import type { FeasibilityResults, ScenarioResult, CashflowRow, YearlyProjection } from "@fease-it/schemas";
 
 function escapeCSV(value: string | number): string {
   const str = String(value);

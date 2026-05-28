@@ -1,4 +1,4 @@
-import type { FinancingInputs } from "~/types";
+import type { FinancingInputs } from "@fease-it/schemas";
 
 export interface LoanCalculation {
   loanAmount: number;

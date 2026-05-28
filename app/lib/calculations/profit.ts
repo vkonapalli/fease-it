@@ -13,7 +13,7 @@ import type {
   GSTConfig,
   LotConfig,
   CapitalStackConfig,
-} from "~/types";
+} from "@fease-it/schemas";
 import { calculateGST, calculateGSTForLot } from "./gst";
 import { calculateLoan } from "./financing";
 import { calculateStampDuty } from "./stampDuty";

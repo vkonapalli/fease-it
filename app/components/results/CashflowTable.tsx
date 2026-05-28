@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
 import { formatCurrency } from "~/lib/utils";
-import type { CashflowRow } from "~/types";
+import type { CashflowRow } from "@fease-it/schemas";
 
 interface CashflowTableProps {
   cashflow: CashflowRow[];

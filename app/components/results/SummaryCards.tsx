@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
 import { formatCurrency, formatPercent } from "~/lib/utils";
-import type { ScenarioResult } from "~/types";
+import type { ScenarioResult } from "@fease-it/schemas";
 import { useWatch } from "react-hook-form";
 
 interface SummaryCardsProps {

@@ -7,13 +7,13 @@ import type {
   SensitivityRow,
   CashflowRow,
   CashflowConfig,
-} from "~/types";
+} from "@fease-it/schemas";
 import {
   ScenarioResultSchema,
   SensitivityRowSchema,
   FeasibilityInputsSchema,
   CashflowRowSchema,
-} from "~/lib/schemas";
+} from "@fease-it/schemas";
 import { calculateProfit } from "./profit";
 import { calculateLoan } from "./financing";
 import { calculateLandTax } from "~/lib/constants/landTax";

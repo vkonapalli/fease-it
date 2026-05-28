@@ -1,6 +1,6 @@
 import { useMemo, useDeferredValue } from "react";
 import { useWatch } from "react-hook-form";
-import type { FeasibilityInputs } from "~/types";
+import type { FeasibilityInputs } from "@fease-it/schemas";
 import { calculateFeasibility } from "~/lib/calculations";
 import { useAppStore } from "~/stores/appStore";
 import { useShallow } from "zustand/react/shallow";

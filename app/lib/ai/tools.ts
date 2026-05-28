@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createInputsForStrategy, getAllStrategies, createScenariosFromStrategy } from "~/lib/templates";
 import { calculateScenario } from "~/lib/calculations";
 import { calculateStampDuty } from "~/lib/calculations/stampDuty";
-import type { FeasibilityInputs, ProjectScenario } from "~/types";
+import type { FeasibilityInputs, ProjectScenario } from "@fease-it/schemas";
 
 const PROJECT_SCENARIOS = [
   "build-sell",

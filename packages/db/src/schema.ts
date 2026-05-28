@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
-import type { FeasibilityInputs, FeasibilityResults } from "~/types";
+import type { FeasibilityInputs, FeasibilityResults } from "@fease-it/schemas";
 
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),

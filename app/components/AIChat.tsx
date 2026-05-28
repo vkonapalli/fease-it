@@ -7,7 +7,7 @@ import { resolveActions, setDeep } from "~/lib/ai/tools";
 import { getAllStrategies, createScenariosFromStrategy } from "~/lib/templates";
 import { Button } from "~/components/ui/Button";
 import { useRevalidator } from "react-router";
-import type { FeasibilityInputs, ProjectScenario } from "~/types";
+import type { FeasibilityInputs, ProjectScenario } from "@fease-it/schemas";
 import type { Scenario } from "~/stores/appStore";
 import {
   X,
