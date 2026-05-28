@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/Card";
 import { formatCurrency, formatPercent } from "~/lib/utils";
 import type { ScenarioResult } from "~/types";
+import { useWatch } from "react-hook-form";
 
 interface SummaryCardsProps {
   results: ScenarioResult;
@@ -14,13 +15,15 @@ function getMarginColor(margin: number): string {
 
 export function SummaryCards({ results }: SummaryCardsProps) {
   const marginColor = getMarginColor(results.profitMargin);
+  const scenarioName = useWatch({ name: "name" }) as string | undefined;
+  const customScenarioName = scenarioName || results.scenarioName;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-primary">{results.scenarioName}</h2>
+        <h2 className="text-lg font-semibold text-primary">{customScenarioName}</h2>
         <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-          {results.scenario}
+          {results.scenarioName}
         </span>
       </div>
 

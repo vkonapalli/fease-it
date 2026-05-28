@@ -6,9 +6,14 @@ import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
 import { Button } from "~/components/ui/Button";
 import { useFormContext, Controller } from "react-hook-form";
 import type { FeasibilityInputs } from "~/types";
+import { asMoney, asPercentage, asNat, asPositiveInt } from "~/lib/fundamental-types";
 import { RefreshCw } from "lucide-react";
 
-export function CapitalStackInputs() {
+interface CapitalStackInputsProps {
+  totalProjectCost?: number;
+}
+
+export function CapitalStackInputs({ totalProjectCost: totalProjectCostProp }: CapitalStackInputsProps) {
   const { control, watch, setValue } = useFormContext<FeasibilityInputs>();
   
   const capitalStack = watch("capitalStack");
@@ -17,8 +22,8 @@ export function CapitalStackInputs() {
   const capitalSpread = watch("capitalSpread");
 
   const totalProjectCost = useMemo(() => {
-    return property.purchasePrice;
-  }, [property.purchasePrice]);
+    return totalProjectCostProp ?? property.purchasePrice;
+  }, [totalProjectCostProp, property.purchasePrice]);
 
   const seniorDebtAmount = useMemo(() => {
     return property.purchasePrice * (financing.lvr / 100);
@@ -45,23 +50,23 @@ export function CapitalStackInputs() {
   function syncFromSpread() {
     const privateLendingTotal = spreadTotals["Private Lending"];
     if (privateLendingTotal && privateLendingTotal > 0 && !capitalStack.privateLending.isPercentageOfCost) {
-      setValue("capitalStack.privateLending.amount", privateLendingTotal);
+      setValue("capitalStack.privateLending.amount", asMoney(privateLendingTotal));
     }
 
     const profitSharingTotal = spreadTotals["Profit Sharing"];
     if (profitSharingTotal && profitSharingTotal > 0) {
-      setValue("capitalStack.profitSharing.amountCommitted", profitSharingTotal);
+      setValue("capitalStack.profitSharing.amountCommitted", asMoney(profitSharingTotal));
     }
 
     const devEquityTotal = spreadTotals["Developer Equity"];
     if (devEquityTotal && devEquityTotal > 0) {
       setValue("capitalStack.developerEquity.isAutoComputed", false);
-      setValue("capitalStack.developerEquity.amount", devEquityTotal);
+      setValue("capitalStack.developerEquity.amount", asMoney(devEquityTotal));
     }
 
     const otherEquityTotal = spreadTotals["Other Equity"];
     if (otherEquityTotal && otherEquityTotal > 0 && !capitalStack.otherEquity.isPercentageOfCost) {
-      setValue("capitalStack.otherEquity.amount", otherEquityTotal);
+      setValue("capitalStack.otherEquity.amount", asMoney(otherEquityTotal));
     }
   }
 

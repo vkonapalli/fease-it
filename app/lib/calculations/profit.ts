@@ -61,40 +61,7 @@ export function calculateRevenue(development: DevelopmentInputs): {
   };
 }
 
-export interface ProfitBreakdown {
-  totalRevenue: number;
-  totalGst: number;
-  totalCosts: number;
-  profit: number;
-  profitMargin: number;
-  profitOnCost: number;
-  cashRequired: number;
-  loanAmount: number;
-  equityRequired: number;
-  costBreakdown: CostBreakdown;
-  lotResults: LotResult[];
-  jv: JVResult;
-  yearlyProjections: YearlyProjection[];
-  // Hold-specific
-  annualRentalIncome?: number;
-  annualOperatingExpenses?: number;
-  netOperatingIncome?: number;
-  capRate?: number;
-  // Tax & commission
-  cgtEstimate: number;
-  marginSchemeGst: number;
-  salesCommission: number;
-  // Capital stack
-  deficit: number;
-  totalProjectCost: number;
-  seniorDebtAmount: number;
-  mezzanineDebtAmount: number;
-  privateLendingAmount: number;
-  developerEquityAmount: number;
-  otherEquityAmount: number;
-  profitSharingAmount: number;
-  committedCapital: number;
-}
+ 
 
 function getGSTAdjustedAmount(amount: number, treatment: "free" | "inclusive" | "exclusive"): number {
   switch (treatment) {
@@ -115,7 +82,7 @@ function calculateAcquisitionCosts(property: AcquisitionInputs): {
   buyersFees: number;
   legalDueDiligence: number;
 } {
-  let total = property.purchasePrice;
+  let total: number = property.purchasePrice;
   let buyersFees = 0;
   let legalDueDiligence = 0;
 
@@ -132,8 +99,8 @@ function calculateAcquisitionCosts(property: AcquisitionInputs): {
     }
 
     const rawAmount = cost.isPercentage
-      ? property.purchasePrice * (cost.amount / 100)
-      : cost.amount;
+      ? property.purchasePrice * ((cost.amount || 0) / 100)
+      : (cost.amount || 0);
 
     const amount = getGSTAdjustedAmount(rawAmount, cost.gstTreatment);
 
@@ -163,34 +130,36 @@ function calculateDevelopmentCosts(
   let construction = 0;
   if (development.strategy.pricingModel === "average") {
     // lots * avg built area * construction cost/sqm = construction cost
-    construction = development.numDwellings * development.strategy.averageBuildAreaPerLot * development.constructionCostPerSqm;
+    construction = (development.numDwellings || 1) * 
+                   (development.strategy.averageBuildAreaPerLot || 0) * 
+                   (development.constructionCostPerSqm || 0);
   } else {
-    for (const lot of development.lots) {
+    for (const lot of development.lots || []) {
       if (lot.hasConstruction) {
-        construction += development.constructionCostPerSqm * lot.buildAreaSqm;
+        construction += (development.constructionCostPerSqm || 0) * (lot.buildAreaSqm || 0);
       }
     }
   }
 
   // Global development costs
   let other = 0;
-  for (const cost of development.globalCosts) {
+  for (const cost of development.globalCosts || []) {
     let rawAmount = cost.isPercentage
-      ? totalRevenue * (cost.amount / 100)
-      : cost.amount;
+      ? totalRevenue * ((cost.amount || 0) / 100)
+      : (cost.amount || 0);
     
     // For Avg price/lot price model, we wouldn’t need lots in development costs
     // (Requirement: For Avg price/lot price model, we wouldn’t need lots in development costs)
     // This probably means applyPerLot should be ignored or disabled.
     if (cost.applyPerLot && development.strategy.pricingModel !== "average") {
-      rawAmount *= development.numDwellings;
+      rawAmount *= development.numDwellings || 1;
     }
     other += getGSTAdjustedAmount(rawAmount, cost.gstTreatment);
   }
 
   // Contingency on total development costs
   const subtotal = construction + other;
-  const contingency = subtotal * (development.contingencyPercent / 100);
+  const contingency = subtotal * ((development.contingencyPercent || 0) / 100);
 
   return {
     total: subtotal + contingency,
@@ -226,10 +195,10 @@ function buildYearlyProjections(
   holdPeriodYears: number,
   revenue: RevenueInputs,
   jv: JVConfig,
-  costBreakdown: CostBreakdown
+  costBreakdown: any
 ): YearlyProjection[] {
-  const projections: YearlyProjection[] = [];
-  let propertyVal = propertyValue;
+  const projections: any[] = [];
+  let propertyVal: number = propertyValue;
   let cumulativeCashflow = 0;
   const annualInterest = loanAmount * (interestRate / 100);
 
@@ -305,7 +274,7 @@ export function calculateProfit({
   operating: OperatingInputs;
   jv: JVConfig;
   capitalStack: CapitalStackConfig;
-}): ProfitBreakdown {
+}) {
   const acquisition = calculateAcquisitionCosts(property);
   const propertyValue = property.purchasePrice;
 
@@ -314,7 +283,7 @@ export function calculateProfit({
 
   const costBasePerLot = revenue.gst.costBasePerLot ?? property.purchasePrice / development.numDwellings;
 
-  const lotResults: LotResult[] = development.lots.map((lot, index) => {
+  const lotResults = development.lots.map((lot, index) => {
     const salePrice = lotPrices[index];
     const gstTreatment = revenue.applyMarginScheme ? "margin-scheme" : revenue.gst.treatment;
     const gst = calculateGSTForLot(
@@ -367,8 +336,8 @@ export function calculateProfit({
   // --- Sales Commission ---
   const salesCommission =
     revenue.salesCommissionType === "percentage"
-      ? totalRevenue * (revenue.salesCommissionPercent / 100)
-      : revenue.salesCommissionFlat;
+      ? totalRevenue * ((revenue.salesCommissionPercent || 0) / 100)
+      : (revenue.salesCommissionFlat || 0);
 
   // --- Marketing ---
   // Marketing is typically a % of revenue + fixed costs
@@ -377,11 +346,11 @@ export function calculateProfit({
 
   // --- Holding costs ---
   const holdingCost =
-    development.globalCosts
+    (development.globalCosts || [])
       .filter((c) => c.name.toLowerCase().includes("holding"))
       .reduce((sum, c) => {
-        const amt = c.isPercentage ? totalRevenue * (c.amount / 100) : c.amount;
-        return sum + (c.applyPerLot ? amt * development.numDwellings : amt);
+        const amt = c.isPercentage ? totalRevenue * ((c.amount || 0) / 100) : (c.amount || 0);
+        return sum + (c.applyPerLot ? amt * (development.numDwellings || 1) : amt);
       }, 0);
 
   // --- Land Tax ---
@@ -397,7 +366,7 @@ export function calculateProfit({
   );
 
   // --- Total Costs ---
-  const costBreakdown: CostBreakdown = {
+  const costBreakdown = {
     acquisition: acquisition.total,
     stampDuty: acquisition.stampDuty,
     buyersFees: acquisition.buyersFees,
@@ -439,7 +408,7 @@ export function calculateProfit({
 
   const profitSharingAmount = capitalStack.profitSharing.amountCommitted;
 
-  let developerEquityAmount = capitalStack.developerEquity.isAutoComputed
+  let developerEquityAmount: number = capitalStack.developerEquity.isAutoComputed
     ? totalProjectCost - seniorDebtAmount - mezzanineDebtAmount - privateLendingAmount - otherEquityAmount - profitSharingAmount
     : capitalStack.developerEquity.amount;
   developerEquityAmount = Math.max(0, developerEquityAmount);
@@ -489,7 +458,7 @@ export function calculateProfit({
     };
   });
 
-  const jvResult: JVResult = {
+  const jvResult = {
     totalCapitalRaised,
     developerEquity: jv.developerEquity,
     totalInvestment,

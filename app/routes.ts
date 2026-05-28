@@ -10,4 +10,5 @@ export default [
   route("login", "routes/login.tsx"),
   route("_health", "routes/_health.tsx"),
   route("api/chat", "routes/api.chat.ts"),
+  route(".well-known/appspecific/com.chrome.devtools.json", "routes/.well-known.appspecific.com.chrome.devtools.json.tsx"),
 ] satisfies RouteConfig;

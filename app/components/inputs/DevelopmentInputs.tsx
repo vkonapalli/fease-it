@@ -7,6 +7,7 @@ import { GSTToggle } from "~/components/ui/GSTToggle";
 import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
 import { useFormContext, Controller, useFieldArray } from "react-hook-form";
 import type { FeasibilityInputs } from "~/types";
+import { asMoney, asPercentage, asNat, asPositiveInt } from "~/lib/fundamental-types";
 import { calculateRevenue } from "~/lib/calculations/profit";
 import { Plus, Trash2 } from "lucide-react";
 import { cn } from "~/lib/utils";
@@ -58,21 +59,21 @@ export function DevelopmentInputs() {
   const handleAddLot = () => {
     const newId = Math.max(...development.lots.map((l) => l.id), 0) + 1;
     appendLot({
-      id: newId,
+      id: asNat(newId),
       name: `Block ${newId}`,
-      salePrice: 1775000,
+      salePrice: asMoney(1775000),
       buildAreaSqm: 0,
       landAreaSqm: 647.5,
       isHeld: false,
       hasConstruction: false,
     });
-    setValue("development.numDwellings", development.numDwellings + 1);
+    setValue("development.numDwellings", asPositiveInt(development.numDwellings + 1));
   };
 
   const handleRemoveLot = (index: number) => {
     if (development.lots.length <= 1) return;
     removeLot(index);
-    setValue("development.numDwellings", development.numDwellings - 1);
+    setValue("development.numDwellings", asPositiveInt(development.numDwellings - 1));
   };
 
   return (
@@ -281,7 +282,7 @@ export function DevelopmentInputs() {
           <Button variant="ghost" size="sm" onClick={() => appendGlobalCost({
             id: crypto.randomUUID(),
             name: "New Cost",
-            amount: 0,
+            amount: asMoney(0),
             isPercentage: false,
             applyPerLot: false,
             gstTreatment: "inclusive",

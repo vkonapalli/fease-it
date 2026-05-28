@@ -25,13 +25,10 @@ interface AppState {
 
   // Scenarios
   scenarios: Scenario[];
-  activeScenarioId: string | null;
   addScenario: (scenario: Scenario) => void;
   updateScenario: (id: string, updates: Partial<Omit<Scenario, "id">>) => void;
   removeScenario: (id: string) => void;
-  setActiveScenario: (id: string) => void;
   markScenarioSynced: (localId: string, remoteId: string) => void;
-  duplicateScenario: (id: string) => void;
   duplicateScenarioWithOptions: (
     id: string,
     name: string,
@@ -47,9 +44,6 @@ interface AppState {
     }
   ) => void;
   setScenarios: (scenarios: Scenario[]) => void;
-  getActiveScenario: () => Scenario | null;
-  getActiveInputs: () => FeasibilityInputs | null;
-  updateActiveInputs: (inputs: Partial<FeasibilityInputs>) => void;
 
   // Strategies
   customStrategies: Strategy[];
@@ -86,12 +80,10 @@ export const useAppStore = create<AppState>()(
 
       // Scenarios
       scenarios: [createDefaultScenario()],
-      activeScenarioId: null,
 
       addScenario: (scenario) =>
         set((state) => ({
           scenarios: [...state.scenarios, { ...scenario, isPlaceholder: false }],
-          activeScenarioId: scenario.id,
         })),
 
       updateScenario: (id, updates) =>
@@ -124,16 +116,9 @@ export const useAppStore = create<AppState>()(
         }),
 
       removeScenario: (id) =>
-        set((state) => {
-          const filtered = state.scenarios.filter((s) => s.id !== id);
-          const newActive =
-            state.activeScenarioId === id
-              ? filtered[0]?.id ?? null
-              : state.activeScenarioId;
-          return { scenarios: filtered, activeScenarioId: newActive };
-        }),
-
-      setActiveScenario: (id) => set({ activeScenarioId: id }),
+        set((state) => ({
+          scenarios: state.scenarios.filter((s) => s.id !== id),
+        })),
 
       markScenarioSynced: (localId, remoteId) =>
         set((state) => ({
@@ -142,24 +127,7 @@ export const useAppStore = create<AppState>()(
           ),
         })),
 
-      duplicateScenario: (id) =>
-        set((state) => {
-          const source = state.scenarios.find((s) => s.id === id);
-          if (!source) return state;
-          const copy: Scenario = {
-            ...source,
-            id: crypto.randomUUID(),
-            name: `${source.name} (Copy)`,
-            sortOrder: Math.max(...state.scenarios.map((s) => s.sortOrder), 0) + 1,
-            synced: false,
-            remoteId: null,
-            isPlaceholder: false,
-          };
-          return {
-            scenarios: [...state.scenarios, copy],
-            activeScenarioId: copy.id,
-          };
-        }),
+
 
       duplicateScenarioWithOptions: (id, name, options) =>
         set((state) => {
@@ -198,38 +166,12 @@ export const useAppStore = create<AppState>()(
           };
           return {
             scenarios: [...state.scenarios, copy],
-            activeScenarioId: copy.id,
           };
         }),
 
       setScenarios: (scenarios) => set({ scenarios }),
 
-      getActiveScenario: () => {
-        const state = get();
-        return (
-          state.scenarios.find((s) => s.id === state.activeScenarioId) ??
-          state.scenarios[0] ??
-          null
-        );
-      },
 
-      getActiveInputs: () => {
-        const scenario = get().getActiveScenario();
-        return scenario?.inputs ?? null;
-      },
-
-      updateActiveInputs: (inputs) =>
-        set((state) => {
-          const activeId = state.activeScenarioId ?? state.scenarios[0]?.id;
-          if (!activeId) return state;
-          return {
-            scenarios: state.scenarios.map((s) =>
-              s.id === activeId
-                ? { ...s, inputs: { ...s.inputs, ...inputs }, synced: false, isPlaceholder: false }
-                : s
-            ),
-          };
-        }),
 
       // Strategies
       customStrategies: [],
@@ -264,32 +206,19 @@ export const useAppStore = create<AppState>()(
         set((state) => {
           const isSameProject = state.projectId === projectId;
           
-          // 1. Keep local-only scenarios (those without a remoteId) that are not placeholders,
-          // but ONLY if we are hydrating the same project. If we switched projects, discard them.
-          const localOnlyScenarios = isSameProject 
-            ? state.scenarios.filter((s) => !s.remoteId && !s.isPlaceholder)
-            : [];
-          
-          // 2. Identify local scenarios that have unsynced changes, again only if same project
+          // Identify local scenarios that have unsynced changes, only if same project
           const unsyncedScenarios = isSameProject
             ? state.scenarios.filter((s) => s.remoteId && !s.synced)
             : [];
           
-          // 3. Start with server scenarios
+          // Start with server scenarios
           const mergedScenarios = [...serverScenarios];
           
-          // 4. For any server scenario that has a local unsynced version, use the local one
+          // For any server scenario that has a local unsynced version, use the local one
           for (let i = 0; i < mergedScenarios.length; i++) {
             const unsynced = unsyncedScenarios.find(u => u.remoteId === mergedScenarios[i].remoteId);
             if (unsynced) {
               mergedScenarios[i] = unsynced;
-            }
-          }
-          
-          // 5. Add local-only ones that aren't already represented
-          for (const local of localOnlyScenarios) {
-            if (!mergedScenarios.find(s => s.id === local.id)) {
-              mergedScenarios.push(local);
             }
           }
 
@@ -314,11 +243,6 @@ export const useAppStore = create<AppState>()(
             projectId,
             projectName,
             scenarios: uniqueScenarios,
-            // If the active scenario isn't in the new list, pick the first one
-            activeScenarioId:
-              state.activeScenarioId && uniqueScenarios.find((s) => s.id === state.activeScenarioId)
-                ? state.activeScenarioId
-                : uniqueScenarios[0]?.id ?? null,
             _hasHydrated: true,
           };
         });
@@ -331,16 +255,11 @@ export const useAppStore = create<AppState>()(
         projectId: state.projectId,
         projectName: state.projectName,
         scenarios: state.scenarios,
-        activeScenarioId: state.activeScenarioId,
         customStrategies: state.customStrategies,
         preferredStrategyId: state.preferredStrategyId,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
-        // Ensure activeScenarioId is valid after rehydration
-        if (state && state.scenarios.length > 0 && !state.activeScenarioId) {
-          state.setActiveScenario(state.scenarios[0].id);
-        }
       },
     }
   )

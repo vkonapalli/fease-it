@@ -9,6 +9,7 @@ import type {
   FeasibilityInputs,
   ProjectScenario,
 } from "~/types";
+import { SDAResultSchema } from "~/lib/schemas";
 
 export interface SDACalculationInputs {
   units: number;
@@ -174,7 +175,7 @@ export function calculateSDA(config: SDACalculationInputs): SDAResult {
   const netCashflowBeforeInterest = split.landlordShare - expenses.totalAnnual;
   const netCashflow = netCashflowBeforeInterest - config.interestAnnual;
 
-  return {
+  return SDAResultSchema.parse({
     totalWeeklyRevenue: revenue.perUnitMonthly / 4.33, // approximate weeks
     totalAnnualRevenue: revenue.totalAnnual,
     landlordShare: split.landlordShare,
@@ -185,7 +186,7 @@ export function calculateSDA(config: SDACalculationInputs): SDAResult {
     netCashflowBeforeInterest,
     expenses: expenses.totalAnnual,
     providerFee: split.providerFee,
-  };
+  });
 }
 
 // Helper to convert FeasibilityInputs to SDA inputs

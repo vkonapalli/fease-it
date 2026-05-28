@@ -3,6 +3,7 @@ import { NumberField } from "~/components/ui/NumberField";
 import { Button } from "~/components/ui/Button";
 import { useFormContext, Controller, useFieldArray } from "react-hook-form";
 import type { FeasibilityInputs } from "~/types";
+import { asMoney, asPercentage, asNat, asPositiveInt } from "~/lib/fundamental-types";
 import { Plus, Trash2 } from "lucide-react";
 import { cn } from "~/lib/utils";
 
@@ -112,9 +113,9 @@ export function JVInputs() {
                             field.onChange(val);
                             // Recalculate totalRaised for the round
                             const currentInvestors = [...jv.rounds[rIndex].investors];
-                            currentInvestors[iIndex].amount = val;
-                            const newTotal = currentInvestors.reduce((s, i) => s + i.amount, 0);
-                            setValue(`jv.rounds.${rIndex}.totalRaised`, newTotal);
+                            currentInvestors[iIndex].amount = asMoney(val);
+                            const newTotal = asMoney(currentInvestors.reduce((s, i) => s + i.amount, 0));
+                            setValue(`jv.rounds.${rIndex}.totalRaised`, asMoney(newTotal));
                           }}
                           prefix="$"
                           min={0}
@@ -127,7 +128,7 @@ export function JVInputs() {
                       onClick={() => {
                         const newInvestors = jv.rounds[rIndex].investors.filter((_, i) => i !== iIndex);
                         setValue(`jv.rounds.${rIndex}.investors`, newInvestors);
-                        setValue(`jv.rounds.${rIndex}.totalRaised`, newInvestors.reduce((s, i) => s + i.amount, 0));
+                        setValue(`jv.rounds.${rIndex}.totalRaised`, asMoney(newInvestors.reduce((s, i) => s + i.amount, 0)));
                       }}
                       aria-label="Delete item" className="text-error hover:text-error/80 p-1"
                     >
@@ -140,7 +141,7 @@ export function JVInputs() {
                 variant="ghost" 
                 size="sm" 
                 onClick={() => {
-                  const newInv = { id: crypto.randomUUID(), name: "New Investor", amount: 0 };
+                  const newInv = { id: crypto.randomUUID(), name: "New Investor", amount: asMoney(0) };
                   setValue(`jv.rounds.${rIndex}.investors`, [...jv.rounds[rIndex].investors, newInv]);
                 }}
               >
@@ -151,7 +152,7 @@ export function JVInputs() {
           <Button variant="ghost" size="sm" onClick={() => appendRound({
             id: crypto.randomUUID(),
             name: `Round ${roundFields.length + 1}`,
-            totalRaised: 0,
+            totalRaised: asMoney(0),
             investors: [],
           })}>
             <Plus className="h-4 w-4 mr-1" /> Round
@@ -230,9 +231,9 @@ export function JVInputs() {
           <Button variant="ghost" size="sm" onClick={() => appendPartner({ 
             id: crypto.randomUUID(), 
             name: "New Partner", 
-            amount: 0, 
-            interestRate: 15, 
-            monthsLoaned: 12 
+            amount: asMoney(0), 
+            interestRate: asPercentage(15), 
+            monthsLoaned: asPositiveInt(12)
           })}>
             <Plus className="h-4 w-4 mr-1" /> Partner
           </Button>

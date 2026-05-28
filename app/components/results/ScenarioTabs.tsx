@@ -1,4 +1,4 @@
-import { useAppStore } from "~/stores/appStore";
+import { useFormContext } from "react-hook-form";
 import type { ProjectScenario, ScenarioResult } from "~/types";
 import { formatCurrency } from "~/lib/utils";
 
@@ -8,7 +8,7 @@ interface ScenarioTabsProps {
 }
 
 export function ScenarioTabs({ scenarios, activeScenario }: ScenarioTabsProps) {
-  const updateActiveInputs = useAppStore((s) => s.updateActiveInputs);
+  const { setValue } = useFormContext();
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -16,7 +16,7 @@ export function ScenarioTabs({ scenarios, activeScenario }: ScenarioTabsProps) {
         {scenarios.map((s) => (
           <button
             key={s.scenario}
-            onClick={() => updateActiveInputs({ scenario: s.scenario })}
+            onClick={() => setValue("scenario", s.scenario, { shouldDirty: true, shouldTouch: true, shouldValidate: true })}
             className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
               activeScenario === s.scenario
                 ? "border-accent text-primary bg-accent/5"

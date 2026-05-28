@@ -30,7 +30,11 @@ interface ParsedAction {
   selectedIds?: string[];
 }
 
-function applyStoreActions(actions: ParsedAction[]) {
+function applyStoreActions(
+  actions: ParsedAction[], 
+  currentInputs: FeasibilityInputs | null,
+  onUpdateInputs: (changes: Record<string, unknown>) => void
+) {
   const state = useAppStore.getState();
 
   for (const action of actions) {
@@ -45,13 +49,8 @@ function applyStoreActions(actions: ParsedAction[]) {
       };
       state.addScenario(newScenario);
     } else if (action.type === "update_inputs" && action.changes) {
-      const currentInputs = state.getActiveInputs();
       if (currentInputs) {
-        const merged = structuredClone(currentInputs) as unknown as Record<string, unknown>;
-        for (const [path, value] of Object.entries(action.changes)) {
-          setDeep(merged, path, value);
-        }
-        state.updateActiveInputs(merged as unknown as Partial<FeasibilityInputs>);
+        onUpdateInputs(action.changes);
       }
     } else if (
       action.type === "create_from_strategy" &&
@@ -101,6 +100,7 @@ function AIChatCore({
   activeScenarioId,
   projectName,
   currentInputs,
+  onUpdateInputs,
   onClose,
 }: {
   initialMessages: UIMessage[];
@@ -109,6 +109,7 @@ function AIChatCore({
   activeScenarioId: string | null;
   projectName: string;
   currentInputs: FeasibilityInputs | null;
+  onUpdateInputs: (changes: Record<string, unknown>) => void;
   onClose: () => void;
 }) {
   const [inputText, setInputText] = useState("");
@@ -199,7 +200,7 @@ function AIChatCore({
 
       if (pendingActions.length === 0) return;
 
-      applyStoreActions(pendingActions);
+      applyStoreActions(pendingActions, currentInputs, onUpdateInputs);
       const summary = pendingActions.map((a) => a.name).join(", ");
       setToast(`Applied: ${summary}`);
       setTimeout(() => setToast(null), 4000);
@@ -492,14 +493,21 @@ function AIChatCore({
    Wrapper component that loads chat history from
    the server before mounting the core chat UI.
    ──────────────────────────────────────────────── */
-export function AIChat({ currentInputs }: { currentInputs?: FeasibilityInputs | null }) {
+export function AIChat({ 
+  currentInputs, 
+  activeScenarioId,
+  onUpdateInputs 
+}: { 
+  currentInputs?: FeasibilityInputs | null,
+  activeScenarioId: string | null,
+  onUpdateInputs: (changes: Record<string, unknown>) => void
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
   const [initialThreadId, setInitialThreadId] = useState<string | null>(null);
 
   const projectId = useAppStore((s) => s.projectId);
-  const activeScenarioId = useAppStore((s) => s.activeScenarioId);
   const projectName = useAppStore((s) => s.projectName);
 
   const storageKey = getStorageKey(projectId);
@@ -573,6 +581,7 @@ export function AIChat({ currentInputs }: { currentInputs?: FeasibilityInputs | 
       activeScenarioId={activeScenarioId}
       projectName={projectName}
       currentInputs={currentInputs ?? null}
+      onUpdateInputs={onUpdateInputs}
       onClose={() => setIsOpen(false)}
     />
   );

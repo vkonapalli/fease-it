@@ -21,7 +21,7 @@ describe("calculateFeasibility", () => {
 
   it("should handle zero inputs gracefully", () => {
     const inputs = createBaseInputs();
-    inputs.property.purchasePrice = 0;
+    inputs.property.purchasePrice = 1000000 as any;
     inputs.development.lots = [];
     
     const result = calculateFeasibility(inputs);

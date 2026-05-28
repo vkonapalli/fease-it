@@ -3,7 +3,7 @@ import { Calculator, Download, FolderOpen, LogOut, Settings } from "lucide-react
 import { useAppStore } from "~/stores/appStore";
 import { exportAllScenariosToCSV } from "~/lib/export";
 import { calculateFeasibility } from "~/lib/calculations";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { getSupabaseBrowserClient } from "~/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
@@ -13,7 +13,10 @@ interface HeaderProps {
 
 export function Header({ user }: HeaderProps) {
   const projectName = useAppStore((s) => s.projectName);
-  const activeScenario = useAppStore((s) => s.getActiveScenario());
+  const { "*": splat } = useParams();
+  const scenarios = useAppStore((s) => s.scenarios);
+  const scenarioFromUrl = splat?.match(/^scenarios\/([^/]+)/)?.[1];
+  const activeScenario = scenarioFromUrl ? scenarios.find((s) => s.id === scenarioFromUrl) : scenarios[0];
   const navigate = useNavigate();
 
   const handleExport = () => {

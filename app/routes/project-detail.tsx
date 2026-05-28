@@ -36,7 +36,7 @@ import type { Scenario as AppScenario } from "~/stores/appStore";
 import { Plus, Loader2, Copy } from "lucide-react";
 import { Button } from "~/components/ui/Button";
 import { AIChat } from "~/components/AIChat";
-import { useForm, FormProvider, useWatch } from "react-hook-form";
+import { useForm, FormProvider, useWatch, useFormContext } from "react-hook-form";
 import { useShallow } from "zustand/react/shallow";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FeasibilityInputsSchema } from "~/lib/schemas";
@@ -51,7 +51,6 @@ function parseScenarioFromSplat(splat: string | undefined): string | undefined {
 interface LoaderData {
   project: { id: string; name: string } | null;
   scenarios: AppScenario[];
-  localOnly: boolean;
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -59,7 +58,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   if (!projectId) throw redirect("/projects");
 
   if (!isSupabaseConfigured()) {
-    return { project: null, scenarios: [], localOnly: true } as LoaderData;
+    throw new Error("Supabase is not configured.");
   }
 
   const { user, headers } = await requireAuth(request);
@@ -97,7 +96,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       synced: true,
       remoteId: s.id,
     })),
-    localOnly: false,
   }, { headers });
 }
 
@@ -121,20 +119,11 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   const { intent, id, name } = submission.data;
-  let inputs: unknown = submission.data.inputs;
+  const inputs = submission.data.inputs;
 
-  // Handle both stringified (from FormData) and object (from JSON) inputs
-  if (typeof inputs === "string") {
-    try {
-      inputs = JSON.parse(inputs);
-    } catch (e) {
-      // ignore
-    }
-  }
 
   if (!isSupabaseConfigured()) {
-    // Local fallback logic (could be improved, but handles the non-DB case)
-    return { ok: true };
+    return { error: "Supabase is not configured" };
   }
 
   const { user, headers } = await requireAuth(request);
@@ -143,6 +132,9 @@ export async function action({ request, params }: Route.ActionArgs) {
   try {
     if (intent === "delete-scenario" && id) {
       await db.deleteScenario(request, user.id, id, projectId);
+      if (request.headers.get("X-Remix-Fetch") === "yes" || request.headers.get("Sec-Fetch-Mode") === "cors") {
+        return routerData({ ok: true, id, intent: "delete-scenario" }, { headers });
+      }
       const remaining = await db.getScenarios(request, user.id, projectId);
       if (remaining && remaining.length > 0) {
          return redirect(`/projects/${projectId}/scenarios/${remaining[0].id}`, { headers });
@@ -157,8 +149,8 @@ export async function action({ request, params }: Route.ActionArgs) {
         user.id,
         projectId,
         name,
-        inputs as FeasibilityInputs,
-        0, // sortOrder should be calculated or passed
+        inputs,
+        submission.data.sortOrder ?? 0,
         localId
       );
       
@@ -175,7 +167,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     }
 
     if (intent === "update-scenario" && id && inputs) {
-      await db.updateScenario(request, user.id, projectId, id, { inputs: inputs as FeasibilityInputs });
+      await db.updateScenario(request, user.id, projectId, id, { inputs: inputs });
       return routerData({ ok: true, id, intent }, { headers });
     }
 
@@ -185,8 +177,8 @@ export async function action({ request, params }: Route.ActionArgs) {
         user.id,
         projectId,
         name,
-        inputs as FeasibilityInputs,
-        0 // sortOrder
+        inputs,
+        submission.data.sortOrder ?? 0
       );
       return redirect(`/projects/${projectId}/scenarios/${scenario.id}`, { headers });
     }
@@ -199,7 +191,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
   const { projectId, "*": splat } = useParams();
-  const { project, scenarios: initialScenarios, localOnly } = loaderData;
+  const { project, scenarios: initialScenarios } = loaderData;
   const navigate = useNavigate();
   const fetcher = useFetcher<ActionData>();
   const submit = useSubmit();
@@ -208,9 +200,7 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
   const projectName = useAppStore((s) => s.projectName);
   const storeProjectId = useAppStore((s) => s.projectId);
   const scenarios = useAppStore(useShallow((s) => s.scenarios));
-  const activeScenarioId = useAppStore((s) => s.activeScenarioId);
   const setScenarios = useAppStore((s) => s.setScenarios);
-  const setActiveScenario = useAppStore((s) => s.setActiveScenario);
   const hydrateFromServer = useAppStore((s) => s.hydrateFromServer);
   const hasHydrated = useAppStore((s) => s._hasHydrated);
   const addScenario = useAppStore((s) => s.addScenario);
@@ -225,17 +215,35 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
   const initialised = useRef(false);
 
   const isStoreReady = hasHydrated && storeProjectId === project?.id;
-  const baseScenarios = isStoreReady ? scenarios : initialScenarios;
-  const currentActiveId = isStoreReady ? activeScenarioId : (scenarioFromUrl || initialScenarios[0]?.id);
+  // During transitions (like duplicating a scenario), the new scenario is in initialScenarios
+  // but not yet hydrated into the store. We merge them here to prevent UI flicker.
+  const displayScenarios = useMemo(() => {
+    const raw = isStoreReady ? scenarios : initialScenarios;
+    const filtered = raw;
+    
+    // Defensive deduplication
+    const seen = new Set<string>();
+    return filtered.filter((s) => {
+      if (seen.has(s.id)) {
+        console.warn("Duplicate scenario id detected:", s.id, s.name);
+        return false;
+      }
+      seen.add(s.id);
+      return true;
+    });
+  }, [isStoreReady, scenarios, initialScenarios]);
 
-  const activeScenario = useMemo(
-    () => baseScenarios.find((s) => s.id === currentActiveId) ?? baseScenarios[0] ?? null,
-    [baseScenarios, currentActiveId]
-  );
+  const activeScenario = useMemo(() => {
+    if (scenarioFromUrl) {
+      const found = displayScenarios.find((s) => s.id === scenarioFromUrl);
+      if (found) return found;
+    }
+    return displayScenarios[0] ?? null;
+  }, [displayScenarios, scenarioFromUrl]);
 
   const methods = useForm<FeasibilityInputs>({
     defaultValues: activeScenario?.inputs,
-    resolver: zodResolver(FeasibilityInputsSchema),
+    resolver: zodResolver(FeasibilityInputsSchema) as any,
     mode: "onChange",
   });
 
@@ -284,33 +292,22 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
 
   // Select scenario from URL or default to first
   useEffect(() => {
-    if (scenarios.length === 0) return;
+    if (displayScenarios.length === 0) return;
     
-    if (scenarioFromUrl) {
-      const found = scenarios.find((s) => s.id === scenarioFromUrl);
-      if (found) {
-        // Only set active if different to avoid redundant updates
-        if (activeScenarioId !== scenarioFromUrl) {
-          setActiveScenario(scenarioFromUrl);
-        }
-      } else if (hasHydrated || localOnly) {
-        // If the ID in the URL is not found, it might be a newly added local-only scenario
-        // that hasn't been hydrated yet, or it's genuinely missing.
-        // If we have hydrated and it's still missing, then we fall back.
-        setActiveScenario(scenarios[0].id);
-        handleNavigateScenario(scenarios[0].id);
+    // If the ID in the URL is not found or missing, redirect to the first scenario
+    if (!scenarioFromUrl || !displayScenarios.some(s => s.id === scenarioFromUrl)) {
+      if (!initialised.current || isStoreReady) {
+        handleNavigateScenario(displayScenarios[0].id);
+        initialised.current = true;
       }
-    } else if (!initialised.current && (hasHydrated || localOnly)) {
-      setActiveScenario(scenarios[0].id);
-      handleNavigateScenario(scenarios[0].id);
+    } else {
+      initialised.current = true;
     }
-    initialised.current = true;
-  }, [scenarios, scenarioFromUrl, activeScenarioId, setActiveScenario, handleNavigateScenario, hasHydrated, localOnly]);
+  }, [displayScenarios, scenarioFromUrl, handleNavigateScenario, isStoreReady]);
 
   // Debounced server sync
   const debouncedSave = useCallback(
-    debounce((id: string, remoteId: string | null, name: string, currentInputs: FeasibilityInputs) => {
-      if (localOnly) return;
+    debounce((id: string, remoteId: string | null, name: string, currentInputs: FeasibilityInputs, sortOrder?: number) => {
       if (remoteId) {
         fetcher.submit(
           {
@@ -327,12 +324,13 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
             name,
             inputs: currentInputs,
             localId: id,
+            ...(sortOrder !== undefined ? { sortOrder } : {}),
           } as any,
           { method: "post", encType: "application/json" }
         );
       }
     }, 2000),
-    [fetcher, localOnly]
+    [fetcher]
   );
 
   // Auto-save via RHF subscription (trackhub-web pattern).
@@ -342,11 +340,12 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
   // reset effect -> reset() -> watch() trigger -> render -> useEffect again.
   useEffect(() => {
     const subscription = methods.watch((data) => {
-      if (!activeScenarioId) return;
+      const activeId = activeScenario?.id;
+      if (!activeId) return;
 
       const state = useAppStore.getState();
       const currentScenario = state.scenarios.find(
-        (s) => s.id === activeScenarioId
+        (s) => s.id === activeId
       );
       if (!currentScenario) return;
 
@@ -354,19 +353,20 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
       lastFormValuesRef.current = data as FeasibilityInputs;
 
       if (!isEqual(data, currentScenario.inputs)) {
-        updateScenarioLocal(activeScenarioId, {
+        updateScenarioLocal(activeId, {
           inputs: data as FeasibilityInputs,
         });
         debouncedSave(
-          activeScenarioId,
+          activeId,
           currentScenario.remoteId,
           currentScenario.name,
-          data as FeasibilityInputs
+          data as FeasibilityInputs,
+          currentScenario.sortOrder
         );
       }
     });
     return () => subscription.unsubscribe();
-  }, [methods, activeScenarioId, updateScenarioLocal, debouncedSave]);
+  }, [methods, activeScenario, updateScenarioLocal, debouncedSave]);
 
   // Handle successful background auto-save responses
   useEffect(() => {
@@ -377,14 +377,22 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
       const id = resp.id;
       if (intent === "create-scenario" && id) {
         markScenarioSynced(id, id);
-      } else if (intent === "update-scenario" && id && activeScenarioId) {
-        markScenarioSynced(activeScenarioId, id);
+      } else if (intent === "update-scenario" && id && activeScenario?.id) {
+        markScenarioSynced(activeScenario.id, id);
       }
     }
-  }, [fetcher.state, fetcher.data, markScenarioSynced, activeScenarioId]);
+  }, [fetcher.state, fetcher.data, markScenarioSynced, activeScenario?.id]);
 
   const scenarioType = useWatch({ control: methods.control, name: "scenario" });
   const isSDA = scenarioType === "sda-hold";
+
+  const formValues = useWatch({ control: methods.control }) as FeasibilityInputs;
+  const deferredFormValues = useDeferredValue(formValues);
+  const results = useMemo(() => {
+    if (!deferredFormValues || Object.keys(deferredFormValues).length === 0) return null;
+    return calculateFeasibility(deferredFormValues);
+  }, [deferredFormValues]);
+  const activeResult = results?.scenarios.find((s) => s.scenario === results.activeScenario);
 
   // Deriving saving state from React Router
   const { state: navigationState, formData: navigationFormData } = useNavigation();
@@ -394,61 +402,61 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
 
   function handleAddScenario() {
     if (!projectId) return;
-    if (scenarios.length >= 20) {
+    if (displayScenarios.length >= 20) {
       alert("Maximum 20 scenarios allowed.");
       return;
     }
-    const source = activeScenario ?? scenarios[0];
-    const newName = `Scenario ${scenarios.length + 1}`;
+    const source = activeScenario ?? displayScenarios[0];
+    const newName = `Scenario ${displayScenarios.length + 1}`;
     const newInputs = source
       ? structuredClone({ ...source.inputs, name: newName }) as AppScenario["inputs"]
       : ({} as AppScenario["inputs"]);
     
-    if (localOnly) {
-       // Local fallback
-       const newId = crypto.randomUUID();
-       const newScenario: AppScenario = {
-         id: newId,
-         name: newName,
-         inputs: newInputs,
-         sortOrder: Math.max(...scenarios.map((s) => s.sortOrder), 0) + 1,
-         synced: false,
-         remoteId: null,
-       };
-       addScenario(newScenario);
-       handleNavigateScenario(newId);
-       return;
-    }
-
     submit(
       {
         intent: "create-scenario",
         name: newName,
         inputs: newInputs,
+        sortOrder: Math.max(...displayScenarios.map((s) => s.sortOrder), 0) + 1,
       } as any,
       { method: "post", encType: "application/json" }
     );
   }
 
   async function handleDeleteScenario(id: string) {
-    if (scenarios.length <= 1) {
+    if (displayScenarios.length <= 1) {
       alert("You must keep at least one scenario.");
       return;
     }
-    const scenario = scenarios.find((s) => s.id === id);
-    if (localOnly || !scenario?.remoteId) {
+    const scenario = displayScenarios.find((s) => s.id === id);
+    if (!scenario) return;
+
+    // Determine the fallback if we are deleting the currently active scenario
+    const isActive = activeScenario?.id === id;
+    const remaining = displayScenarios.filter(s => s.id !== id);
+    const fallbackId = remaining[0]?.id;
+
+    if (!scenario?.remoteId) {
         removeScenario(id);
+        if (isActive && fallbackId) {
+            handleNavigateScenario(fallbackId);
+        }
         return;
     }
     
-    // Server deletion
-    submit(
+    // Server deletion via fetcher avoids forcing a full page reload or loss of active tab
+    fetcher.submit(
       {
         intent: "delete-scenario",
         id: scenario.remoteId,
-      },
+      } as any,
       { method: "post", encType: "application/json" }
     );
+    // Optimistically remove it locally
+    removeScenario(id);
+    if (isActive && fallbackId) {
+        handleNavigateScenario(fallbackId);
+    }
   }
 
   function handleRenameScenario(id: string, name: string) {
@@ -456,8 +464,7 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
   }
 
   function handleScenarioSelect(id: string) {
-    if (id === activeScenarioId) return;
-    setActiveScenario(id);
+    if (id === activeScenario?.id) return;
     handleNavigateScenario(id);
   }
 
@@ -466,21 +473,10 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
     name: string,
     options: Parameters<typeof duplicateScenarioWithOptions>[2]
   ) {
-    const source = scenarios.find(s => s.id === id);
+    const source = displayScenarios.find(s => s.id === id);
     if (!source) return;
     
     setCopyDialogId(null);
-    
-    if (localOnly) {
-       duplicateScenarioWithOptions(id, name, options);
-       // The store updates synchronously, we can find the newly created scenario by assuming it's the last one
-       const state = useAppStore.getState();
-       const last = state.scenarios[state.scenarios.length - 1];
-       if (last) {
-         handleNavigateScenario(last.id);
-       }
-       return;
-    }
     
     // We need to calculate the duplicated inputs since the server just saves them
     // It's cleaner to duplicate the logic here or pass the options to the server.
@@ -510,45 +506,36 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
         intent: "duplicate-scenario",
         name,
         inputs: newInputs,
+        sortOrder: Math.max(...scenarios.map((s) => s.sortOrder), 0) + 1,
       } as any,
       { method: "post", encType: "application/json" }
     );
   }
 
-  // Optimistic delete state
   const isDeleting = (navigationState !== "idle" && navigationFormData?.get("intent") === "delete-scenario") || 
                      (fetcher.state !== "idle" && fetcher.formData?.get("intent") === "delete-scenario");
   const deletingId = isDeleting ? ((navigationFormData?.get("id") || fetcher.formData?.get("id")) as string) : null;
-  const displayScenarios = useMemo(() => {
-    const filtered = deletingId 
-      ? baseScenarios.filter((s) => s.id !== deletingId && s.remoteId !== deletingId) 
-      : baseScenarios;
-    // Defensive: deduplicate by id to prevent duplicate key warnings.
-    // If duplicates exist it indicates a store bug; deduplication keeps UI stable.
-    const seen = new Set<string>();
-    return filtered.filter((s) => {
-      if (seen.has(s.id)) {
-        console.warn("Duplicate scenario id detected:", s.id, s.name);
-        return false;
-      }
-      seen.add(s.id);
-      return true;
-    });
-  }, [baseScenarios, deletingId]);
+  
+  // displayScenarios is now updated directly from baseScenarios filtering
+  const visibleScenarios = useMemo(() => {
+    return deletingId 
+      ? displayScenarios.filter((s) => s.id !== deletingId && s.remoteId !== deletingId) 
+      : displayScenarios;
+  }, [displayScenarios, deletingId]);
 
-  const copySource = copyDialogId ? displayScenarios.find((s) => s.id === copyDialogId) ?? null : null;
+  const copySource = copyDialogId ? visibleScenarios.find((s) => s.id === copyDialogId) ?? null : null;
 
   return (
     <FormProvider {...methods}>
       {/* Scenario Tabs */}
       <div className="bg-white border-b border-gray-200">
         <div className="mx-auto max-w-7xl px-4 py-2 flex items-center gap-2 overflow-x-auto">
-          {displayScenarios.map((s) => (
+          {visibleScenarios.map((s) => (
             <button
               type="button"
               key={s.id}
               className={`group flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${
-                s.id === currentActiveId
+                s.id === activeScenario?.id
                   ? "bg-primary text-white"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
@@ -612,7 +599,7 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
               >
                 <Copy className="h-3 w-3" />
               </div>
-              {displayScenarios.length > 1 && (
+              {visibleScenarios.length > 1 && (
                 <div
                   className="ml-1 text-xs opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
                   onClick={(e) => {
@@ -642,7 +629,7 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
             size="sm"
             variant="ghost"
             onClick={handleAddScenario}
-            disabled={scenarios.length >= 20}
+            disabled={visibleScenarios.length >= 20}
             className="whitespace-nowrap"
           >
             <Plus className="h-3 w-3 mr-1" />
@@ -680,7 +667,7 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
                 <DevelopmentStrategyInputs />
                 <DevelopmentInputs />
                 <FinancingInputs />
-                <CapitalStackInputs />
+                <CapitalStackInputs totalProjectCost={activeResult?.totalProjectCost} />
                 <CapitalSpreadInputs />
                 <RevenueInputs />
                 <OperatingInputs />
@@ -692,17 +679,36 @@ export default function ProjectDetail({ loaderData }: Route.ComponentProps) {
           </div>
 
           <div className="space-y-4">
-            <ResultsPanel />
+            <ResultsPanel results={results} />
           </div>
         </div>
       </main>
 
-      <AIChatWrapper />
+      <AIChatWrapper activeScenarioId={activeScenario?.id ?? null} />
     </FormProvider>
   );
 }
 
-function AIChatWrapper() {
+// AIChat wrapper below
+function AIChatWrapper({ activeScenarioId }: { activeScenarioId: string | null }) {
   const formValues = useWatch();
-  return <AIChat currentInputs={formValues as FeasibilityInputs} />;
+  const { setValue } = useFormContext();
+
+  const handleUpdateInputs = useCallback((changes: Record<string, unknown>) => {
+    if (!formValues) return;
+    const merged = structuredClone(formValues) as Record<string, unknown>;
+    for (const [path, value] of Object.entries(changes)) {
+      // Inline setDeep logic or we can import it. Wait, the component is at the bottom of the file.
+      // Let's just iterate over the changes and use `setValue` since RHF supports dot notation paths!
+      setValue(path, value, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
+    }
+  }, [formValues, setValue]);
+
+  return (
+    <AIChat 
+      currentInputs={formValues as FeasibilityInputs} 
+      activeScenarioId={activeScenarioId}
+      onUpdateInputs={handleUpdateInputs} 
+    />
+  );
 }
