@@ -9,6 +9,7 @@ import { ComputedDollarDisplay } from "~/components/ui/ComputedDollar";
 import { AddressAutocomplete } from "~/components/inputs/AddressAutocomplete";
 import { useFormContext, Controller, useFieldArray } from "react-hook-form";
 import type { FeasibilityInputs } from "~/types";
+import { asMoney, asPercentage, asNat, asPositiveInt } from "~/lib/fundamental-types";
 import { calculateStampDuty, AUSTRALIAN_STATES, formatCurrency } from "~/lib/calculations/stampDuty";
 import { calculateLandTax, countLandTaxPayments } from "~/lib/constants/landTax";
 import { Plus, Trash2, Info } from "lucide-react";
@@ -344,7 +345,7 @@ export function PropertyInputs() {
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={() => append({ id: crypto.randomUUID(), name: "New Cost", amount: 0, isPercentage: false, gstTreatment: "inclusive" })} 
+            onClick={() => append({ id: crypto.randomUUID(), name: "New Cost", amount: asMoney(0), isPercentage: false, gstTreatment: "inclusive" })}
             className="mt-2"
           >
             <Plus className="h-4 w-4 mr-1" /> Add Cost

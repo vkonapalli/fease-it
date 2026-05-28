@@ -3,6 +3,7 @@ import { NumberField } from "~/components/ui/NumberField";
 import { Button } from "~/components/ui/Button";
 import { useFormContext, Controller, useFieldArray, useWatch } from "react-hook-form";
 import type { FeasibilityInputs } from "~/types";
+import { asMoney, asPercentage, asNat, asPositiveInt } from "~/lib/fundamental-types";
 import { Plus, Trash2 } from "lucide-react";
 import { cn } from "~/lib/utils";
 
@@ -41,7 +42,7 @@ export function CapitalSpreadInputs() {
         <Button variant="ghost" size="sm" onClick={() => append({
           id: crypto.randomUUID(),
           description: "New Spread Item",
-          amount: 0,
+          amount: asMoney(0),
           isPercentage: false,
           date: "",
           type: "Deposit",

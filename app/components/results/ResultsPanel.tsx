@@ -19,17 +19,23 @@ import { SDAResults } from "~/components/results/SDAResults";
 import { ScenarioComparison } from "~/components/results/ScenarioComparison";
 import { DeficitCard } from "~/components/results/DeficitCard";
 
-export function ResultsPanel() {
+interface ResultsPanelProps {
+  results?: ReturnType<typeof calculateFeasibility> | null;
+}
+
+export function ResultsPanel({ results: resultsProp }: ResultsPanelProps) {
   const formValues = useWatch() as FeasibilityInputs;
   const deferredFormValues = useDeferredValue(formValues);
   
   // We need scenarios length to decide whether to show ScenarioComparison
   const scenariosLength = useAppStore(useShallow(s => s.scenarios.length));
 
-  const results = useMemo(() => {
+  const computedResults = useMemo(() => {
     if (!deferredFormValues || Object.keys(deferredFormValues).length === 0) return null;
     return calculateFeasibility(deferredFormValues);
   }, [deferredFormValues]);
+
+  const results = resultsProp ?? computedResults;
 
   const isSDA = deferredFormValues?.scenario === "sda-hold";
   const activeResult = results?.scenarios.find((s) => s.scenario === results.activeScenario);

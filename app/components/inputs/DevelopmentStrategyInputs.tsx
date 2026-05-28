@@ -5,6 +5,7 @@ import { Button } from "~/components/ui/Button";
 import { useFormContext, Controller, useFieldArray } from "react-hook-form";
 import { cn } from "~/lib/utils";
 import type { FeasibilityInputs } from "~/types";
+import { asMoney, asPercentage, asNat, asPositiveInt } from "~/lib/fundamental-types";
 import { Plus, Trash2 } from "lucide-react";
 
 const STRATEGY_OPTIONS = [
@@ -187,7 +188,7 @@ export function DevelopmentStrategyInputs() {
               name: `Group ${fields.length + 1}`,
               minSqm: 0,
               maxSqm: 0,
-              pricePerLot: 0,
+              pricePerLot: asMoney(0),
             })}>
               <Plus className="h-4 w-4 mr-1" /> Add Group
             </Button>

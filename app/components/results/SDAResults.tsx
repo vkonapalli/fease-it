@@ -90,7 +90,7 @@ export function SDAResults({ sdaConfig }: SDAResultsProps) {
                 {result.perUnitBreakdown.map((row) => (
                   <tr
                     key={row.units}
-                    className={`border-b hover:bg-gray-50 ${row.units === sdaConfig.units ? "bg-accent/5" : ""}`}
+                    className={`border-b hover:bg-gray-50 ${(row.units as number) === (sdaConfig.units as number) ? "bg-accent/5" : ""}`}
                   >
                     <td className="py-2 font-medium">{row.units}</td>
                     <td className="py-2 text-right font-mono">{formatCurrency(row.totalWithSDA)}</td>

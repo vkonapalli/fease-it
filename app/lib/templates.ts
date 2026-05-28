@@ -1,3 +1,4 @@
+import { FeasibilityInputsSchema } from "./schemas";
 import type { FeasibilityInputs, ProjectScenario, StrategyScenario, Strategy } from "~/types";
 
 // ============================================================
@@ -5,7 +6,7 @@ import type { FeasibilityInputs, ProjectScenario, StrategyScenario, Strategy } f
 // ============================================================
 
 export function createBaseInputs(): FeasibilityInputs {
-  return {
+  return FeasibilityInputsSchema.parse({
     name: "New Property",
     scenario: "build-sell",
     property: {
@@ -159,7 +160,7 @@ export function createBaseInputs(): FeasibilityInputs {
       otherEquity: { amount: 0, isPercentageOfCost: false },
     },
     capitalSpread: [],
-  };
+  });
 }
 
 // ============================================================
@@ -168,7 +169,7 @@ export function createBaseInputs(): FeasibilityInputs {
 
 export function createBuildSellInputs(): FeasibilityInputs {
   const base = createBaseInputs();
-  return {
+  return FeasibilityInputsSchema.parse({
     ...base,
     name: "Build & Sell",
     scenario: "build-sell",
@@ -180,12 +181,12 @@ export function createBuildSellInputs(): FeasibilityInputs {
       ...base.revenue,
       numUnitsForRent: 0,
     },
-  };
+  });
 }
 
 export function createSell1Hold1Inputs(): FeasibilityInputs {
   const base = createBaseInputs();
-  return {
+  return FeasibilityInputsSchema.parse({
     ...base,
     name: "Sell 1, Hold 1",
     scenario: "sell-1-hold-1",
@@ -214,12 +215,12 @@ export function createSell1Hold1Inputs(): FeasibilityInputs {
         },
       ],
     },
-  };
+  });
 }
 
 export function createRentalHoldInputs(): FeasibilityInputs {
   const base = createBaseInputs();
-  return {
+  return FeasibilityInputsSchema.parse({
     ...base,
     name: "Rental Hold",
     scenario: "rental-hold",
@@ -249,12 +250,12 @@ export function createRentalHoldInputs(): FeasibilityInputs {
         },
       ],
     },
-  };
+  });
 }
 
 export function createBuildHoldInputs(): FeasibilityInputs {
   const base = createBaseInputs();
-  return {
+  return FeasibilityInputsSchema.parse({
     ...base,
     name: "Build & Hold",
     scenario: "build-hold",
@@ -303,12 +304,12 @@ export function createBuildHoldInputs(): FeasibilityInputs {
         },
       ],
     },
-  };
+  });
 }
 
 export function createLandPlusBuildInputs(): FeasibilityInputs {
   const base = createBaseInputs();
-  return {
+  return FeasibilityInputsSchema.parse({
     ...base,
     name: "Land + Build",
     scenario: "land-plus-build",
@@ -357,12 +358,12 @@ export function createLandPlusBuildInputs(): FeasibilityInputs {
         },
       ],
     },
-  };
+  });
 }
 
 export function createSDAHoldInputs(): FeasibilityInputs {
   const base = createBaseInputs();
-  return {
+  return FeasibilityInputsSchema.parse({
     ...base,
     name: "SDA Hold",
     scenario: "sda-hold",
@@ -413,7 +414,7 @@ export function createSDAHoldInputs(): FeasibilityInputs {
         },
       ],
     },
-  };
+  });
 }
 
 // ============================================================

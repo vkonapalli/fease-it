@@ -4,6 +4,7 @@ import { NumberField } from "~/components/ui/NumberField";
 import { Button } from "~/components/ui/Button";
 import { useFormContext, Controller, useFieldArray } from "react-hook-form";
 import type { FeasibilityInputs } from "~/types";
+import { asMoney, asPercentage, asNat, asPositiveInt } from "~/lib/fundamental-types";
 import { Plus, Trash2 } from "lucide-react";
 import { formatCurrency, cn } from "~/lib/utils";
 
@@ -138,7 +139,7 @@ export function BudgetVsActualInputs() {
           </div>
         </div>
 
-        <Button variant="ghost" size="sm" onClick={() => append({ id: crypto.randomUUID(), category: "New Item", budget: 0, actual: 0, variance: 0, variancePercent: 0 })}>
+        <Button variant="ghost" size="sm" onClick={() => append({ id: crypto.randomUUID(), category: "New Item", budget: asMoney(0), actual: asMoney(0), variance: 0, variancePercent: 0 })}>
           <Plus className="h-4 w-4 mr-1" /> Add Item
         </Button>
       </div>

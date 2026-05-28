@@ -6,6 +6,7 @@ import { useAppStore } from "~/stores/appStore";
 import { isSupabaseConfigured } from "~/lib/supabase/client";
 import { FolderOpen, X, Check, ChevronDown, Settings, Trash2 } from "lucide-react";
 import type { Strategy, StrategyScenario, FeasibilityInputs, Project } from "~/types";
+import { asMoney, asPercentage, asNat, asPositiveInt } from "~/lib/fundamental-types";
 import type { Scenario } from "~/stores/appStore";
 
 interface CreateProjectDialogProps {
@@ -23,8 +24,6 @@ export function CreateProjectDialog({ isOpen, onClose, onCreated }: CreateProjec
   const deleteCustomStrategy = useAppStore((s) => s.deleteCustomStrategy);
   const setPreferredStrategy = useAppStore((s) => s.setPreferredStrategy);
   const setProject = useAppStore((s) => s.setProject);
-  const setScenarios = useAppStore((s) => s.setScenarios);
-  const setActiveScenario = useAppStore((s) => s.setActiveScenario);
 
   const allStrategies = useMemo(() => getAllStrategies(customStrategies), [customStrategies]);
 
@@ -69,16 +68,7 @@ export function CreateProjectDialog({ isOpen, onClose, onCreated }: CreateProjec
     setSelectedScenarioIds(allSelected ? [] : allIds);
   }
 
-  function buildLocalScenarios(scenarios: { name: string; inputs: FeasibilityInputs }[]): Scenario[] {
-    return scenarios.map((s, i) => ({
-      id: crypto.randomUUID(),
-      name: s.name,
-      inputs: s.inputs,
-      sortOrder: i,
-      synced: false,
-      remoteId: null,
-    }));
-  }
+
 
   async function handleCreate() {
     if (!projectName.trim() || !selectedStrategy) return;
@@ -95,31 +85,15 @@ export function CreateProjectDialog({ isOpen, onClose, onCreated }: CreateProjec
         scenariosToCreate = createScenariosFromStrategy(selectedStrategy, selectedScenarioIds);
       }
 
-      if (isSupabaseConfigured()) {
-        submit(
-          {
-            intent: "create",
-            name: projectName.trim(),
-            scenarios: scenariosToCreate,
-          } as any,
-          { method: "post", encType: "application/json" }
-        );
-        onClose();
-        return;
-      }
-
-      // Local-only mode
-      const projectId = crypto.randomUUID();
-      const projectNameFinal = projectName.trim();
-
-      // Set active project and scenarios
-      setProject(projectId, projectNameFinal);
-      const localScenarios = buildLocalScenarios(scenariosToCreate);
-      setScenarios(localScenarios);
-      setActiveScenario(localScenarios[0].id);
-
+      submit(
+        {
+          intent: "create",
+          name: projectName.trim(),
+          scenarios: scenariosToCreate,
+        },
+        { method: "post", encType: "application/json" }
+      );
       onClose();
-      navigate("/");
     } catch (err) {
       console.error("Failed to create project with scenarios:", err);
       alert("Failed to create project. Please try again.");

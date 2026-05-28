@@ -4,6 +4,7 @@ import { Button } from "~/components/ui/Button";
 import { Toggle } from "~/components/ui/Toggle";
 import { useFormContext, Controller, useFieldArray } from "react-hook-form";
 import type { FeasibilityInputs, CashflowFrequency } from "~/types";
+import { asMoney, asPercentage, asNat, asPositiveInt } from "~/lib/fundamental-types";
 import { Plus, Trash2 } from "lucide-react";
 import { cn } from "~/lib/utils";
 
@@ -159,7 +160,7 @@ export function CashflowInputs() {
                 variant="ghost" 
                 size="sm" 
                 onClick={() => {
-                  const newItem = { name: "New Item", amount: 0, frequency: "once" as const };
+                  const newItem = { name: "New Item", amount: asMoney(0), frequency: "once" as const };
                   setValue(`cashflow.phases.${pIndex}.income`, [...cashflow.phases[pIndex].income, newItem]);
                 }}
               >
@@ -231,7 +232,7 @@ export function CashflowInputs() {
                 variant="ghost" 
                 size="sm" 
                 onClick={() => {
-                  const newItem = { name: "New Item", amount: 0, frequency: "once" as const };
+                  const newItem = { name: "New Item", amount: asMoney(0), frequency: "once" as const };
                   setValue(`cashflow.phases.${pIndex}.costs`, [...cashflow.phases[pIndex].costs, newItem]);
                 }}
               >
@@ -244,7 +245,7 @@ export function CashflowInputs() {
         <Button variant="ghost" size="sm" onClick={() => appendPhase({
           id: crypto.randomUUID(),
           name: `Phase ${phaseFields.length + 1}`,
-          months: 1,
+          months: asPositiveInt(1),
           costs: [],
           income: [],
         })}>

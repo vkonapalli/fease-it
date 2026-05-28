@@ -8,6 +8,12 @@ import type {
   CashflowRow,
   CashflowConfig,
 } from "~/types";
+import {
+  ScenarioResultSchema,
+  SensitivityRowSchema,
+  FeasibilityInputsSchema,
+  CashflowRowSchema,
+} from "~/lib/schemas";
 import { calculateProfit } from "./profit";
 import { calculateLoan } from "./financing";
 import { calculateLandTax } from "~/lib/constants/landTax";
@@ -53,7 +59,7 @@ export function calculateScenario(
   const comparison: ComparisonRow[] = lvrOptions.map((lvrOption) => {
     const calc = calculateLoan({
       propertyValue: inputs.property.purchasePrice,
-      financing: { ...inputs.financing, lvr: lvrOption },
+      financing: { ...inputs.financing, lvr: lvrOption as any },
       totalCosts: profitResult.totalCosts,
       netGrv: profitResult.totalRevenue,
       netProjectCosts: profitResult.totalCosts,
@@ -65,14 +71,14 @@ export function calculateScenario(
       (profitResult.loanAmount - calc.loanAmount);
 
     return {
-      lvr: lvrOption,
-      loan: calc.loanAmount,
-      cashRequired: calc.cashRequired,
-      monthlyPayment: calc.monthlyPayment,
+      lvr: lvrOption as any,
+      loan: calc.loanAmount as any,
+      cashRequired: calc.cashRequired as any,
+      monthlyPayment: calc.monthlyPayment as any,
       profitAfterInterest: profitAfterInterest > 0 ? profitAfterInterest : 0,
-      totalInterest: calc.totalInterestOverTerm,
-      profitMargin: profitResult.profitMargin,
-    };
+      totalInterest: calc.totalInterestOverTerm as any,
+      profitMargin: profitResult.profitMargin as any,
+    } as ComparisonRow;
   });
 
   // Sensitivity Analysis
@@ -92,7 +98,7 @@ export function calculateScenario(
     inputs.property.landTaxOverride
   );
 
-  return {
+  return ScenarioResultSchema.parse({
     scenario,
     scenarioName: getScenarioName(scenario),
     totalRevenue: profitResult.totalRevenue,
@@ -131,7 +137,7 @@ export function calculateScenario(
     otherEquityAmount: profitResult.otherEquityAmount,
     profitSharingAmount: profitResult.profitSharingAmount,
     committedCapital: profitResult.committedCapital,
-  };
+  });
 }
 
 function buildSensitivityRow(
@@ -163,13 +169,13 @@ function buildSensitivityRow(
       ? profitResult.yearlyProjections[profitResult.yearlyProjections.length - 1].profitPercent ?? 0
       : 0;
 
-  return {
+  return SensitivityRowSchema.parse({
     label,
     profit: profitResult.profit,
     margin: profitResult.profitMargin,
     cashRequired: loanCalc.cashRequired,
     irr,
-  };
+  });
 }
 
 function calculateScenarioSensitivity(
@@ -183,7 +189,7 @@ function calculateScenarioSensitivity(
         ...i,
         development: {
           ...i.development,
-          lots: i.development.lots.map((l) => ({ ...l, salePrice: l.salePrice * 0.8 })),
+          lots: i.development.lots.map((l) => ({ ...l, salePrice: l.salePrice * 0.8 as any })),
         },
       }),
     },
@@ -193,7 +199,7 @@ function calculateScenarioSensitivity(
         ...i,
         development: {
           ...i.development,
-          lots: i.development.lots.map((l) => ({ ...l, salePrice: l.salePrice * 0.9 })),
+          lots: i.development.lots.map((l) => ({ ...l, salePrice: l.salePrice * 0.9 as any })),
         },
       }),
     },
@@ -203,7 +209,7 @@ function calculateScenarioSensitivity(
         ...i,
         development: {
           ...i.development,
-          lots: i.development.lots.map((l) => ({ ...l, salePrice: l.salePrice * 1.1 })),
+          lots: i.development.lots.map((l) => ({ ...l, salePrice: l.salePrice * 1.1 as any })),
         },
       }),
     },
@@ -213,7 +219,7 @@ function calculateScenarioSensitivity(
         ...i,
         development: {
           ...i.development,
-          lots: i.development.lots.map((l) => ({ ...l, salePrice: l.salePrice * 1.2 })),
+          lots: i.development.lots.map((l) => ({ ...l, salePrice: l.salePrice * 1.2 as any })),
         },
       }),
     },
@@ -223,7 +229,7 @@ function calculateScenarioSensitivity(
         ...i,
         development: {
           ...i.development,
-          constructionCostPerSqm: i.development.constructionCostPerSqm * 0.8,
+          constructionCostPerSqm: i.development.constructionCostPerSqm * 0.8 as any,
         },
       }),
     },
@@ -233,7 +239,7 @@ function calculateScenarioSensitivity(
         ...i,
         development: {
           ...i.development,
-          constructionCostPerSqm: i.development.constructionCostPerSqm * 1.2,
+          constructionCostPerSqm: i.development.constructionCostPerSqm * 1.2 as any,
         },
       }),
     },
@@ -241,14 +247,14 @@ function calculateScenarioSensitivity(
       name: "Interest Rate +2%",
       modifier: (i) => ({
         ...i,
-        financing: { ...i.financing, interestRate: i.financing.interestRate + 2 },
+        financing: { ...i.financing, interestRate: i.financing.interestRate + 2 as any },
       }),
     },
     {
       name: "Purchase Price +10%",
       modifier: (i) => ({
         ...i,
-        property: { ...i.property, purchasePrice: i.property.purchasePrice * 1.1 },
+        property: { ...i.property, purchasePrice: i.property.purchasePrice * 1.1 as any },
       }),
     },
   ];
@@ -350,7 +356,7 @@ function generateCashflow(
       const net = income - expenses;
       cumulative += net;
 
-      rows.push({
+      rows.push(CashflowRowSchema.parse({
         period: periodNumber,
         periodLabel,
         income,
@@ -359,7 +365,7 @@ function generateCashflow(
         cumulativeCashflow: cumulative,
         incomeItems,
         expenseItems,
-      });
+      }));
     }
   }
 
@@ -374,7 +380,7 @@ export function calculateFeasibility(inputs: FeasibilityInputs): FeasibilityResu
   const activeScenario = scenarios.find((s) => s.scenario === inputs.scenario) ?? scenarios[0];
 
   return {
-    activeScenario: inputs.scenario,
+    activeScenario: activeScenario.scenario,
     scenarios,
     budgetVsActual: inputs.budgetVsActual,
   };

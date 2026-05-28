@@ -41,17 +41,15 @@ export function calculateLoan({
   netGrv?: number;
   netProjectCosts?: number;
 }): LoanCalculation {
-  const {
-    lvr,
-    interestRate,
-    loanTermMonths,
-    establishmentFeePercent,
-    brokerFeePercent,
-    settlementFee,
-    deferredFeeMonths,
-    secondLvr,
-    secondInterestRate,
-  } = financing;
+  const lvr = financing.lvr || 0;
+  const interestRate = financing.interestRate || 0;
+  const loanTermMonths = financing.loanTermMonths || 0;
+  const establishmentFeePercent = financing.establishmentFeePercent || 0;
+  const brokerFeePercent = financing.brokerFeePercent || 0;
+  const settlementFee = financing.settlementFee || 0;
+  const deferredFeeMonths = financing.deferredFeeMonths || 0;
+  const secondLvr = financing.secondLvr;
+  const secondInterestRate = financing.secondInterestRate;
 
   // Primary loan
   const primaryBase = getLoanBase(financing, propertyValue, netGrv, netProjectCosts, false);
@@ -116,7 +114,7 @@ export function compareLVRScenarios(
   return scenarios.map(({ lvr, interestRate }) => {
     const calc = calculateLoan({
       propertyValue,
-      financing: { ...financing, lvr, interestRate },
+      financing: { ...financing, lvr: lvr as any, interestRate: interestRate as any },
       totalCosts,
       netGrv,
       netProjectCosts,

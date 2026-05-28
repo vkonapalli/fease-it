@@ -3,6 +3,7 @@ import { NumberField } from "~/components/ui/NumberField";
 import { Button } from "~/components/ui/Button";
 import { useFormContext, Controller, useFieldArray } from "react-hook-form";
 import type { FeasibilityInputs } from "~/types";
+import { asMoney, asPercentage, asNat, asPositiveInt } from "~/lib/fundamental-types";
 import { Plus, Trash2 } from "lucide-react";
 import { cn } from "~/lib/utils";
 
@@ -106,9 +107,9 @@ export function OperatingInputs() {
         <Button variant="ghost" size="sm" onClick={() => append({
           id: crypto.randomUUID(),
           name: "New Operating Cost",
-          annualAmount: 0,
+          annualAmount: asMoney(0),
           isPercentageOfRent: false,
-          escalationRate: 0,
+          escalationRate: asPercentage(0),
         })}>
           <Plus className="h-4 w-4 mr-1" /> Add Cost
         </Button>
